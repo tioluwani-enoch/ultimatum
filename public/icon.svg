@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Ultimate Summer OS icon">
+  <rect width="512" height="512" rx="96" fill="#f6f2eb"/>
+  <circle cx="368" cy="132" r="58" fill="#f2b84b"/>
+  <path d="M88 326c88-106 186-120 338-70" fill="none" stroke="#1f7a63" stroke-width="42" stroke-linecap="round"/>
+  <path d="M96 378c110-46 222-44 348 10" fill="none" stroke="#2f4652" stroke-width="34" stroke-linecap="round"/>
+  <ellipse cx="190" cy="176" rx="96" ry="38" fill="#f7fbf8" stroke="#d55244" stroke-width="18" transform="rotate(-13 190 176)"/>
+  <path d="M123 185c42 9 88 3 143-24" fill="none" stroke="#d55244" stroke-width="12" stroke-linecap="round"/>
+</svg>
