@@ -34,6 +34,8 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import type { CSSProperties, Dispatch, SetStateAction } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   budgetItems,
   dailyChecklist,
@@ -1030,7 +1032,7 @@ function Assistant({
             <div className="chat-avatar">{message.role === "assistant" ? <Bot size={20} /> : <CircleUser size={20} />}</div>
             <div>
               <p>{message.role === "assistant" ? "Ultimatum AI" : "You"}</p>
-              <div className="chat-bubble">{message.content}</div>
+              <ChatMarkdown content={message.content} />
             </div>
           </article>
         ))}
@@ -1039,7 +1041,7 @@ function Assistant({
             <div className="chat-avatar"><Bot size={20} /></div>
             <div>
               <p>Ultimatum AI</p>
-              <div className="chat-bubble">Thinking with your app context...</div>
+              <ChatMarkdown content="Thinking with your app context..." />
             </div>
           </article>
         )}
@@ -1066,6 +1068,14 @@ function Assistant({
         <small>Guidance is based on your app profile. Consult a professional for serious or recurring pain.</small>
       </div>
     </section>
+  );
+}
+
+function ChatMarkdown({ content }: { content: string }) {
+  return (
+    <div className="chat-bubble markdown-body">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+    </div>
   );
 }
 
