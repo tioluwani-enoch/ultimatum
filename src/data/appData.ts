@@ -102,7 +102,7 @@ export const workouts: WorkoutDay[] = [
     ]
   },
   {
-    day: "Tue",
+    day: "Wed",
     focus: "Lower body: strength",
     tag: "Training",
     exercises: [
@@ -116,18 +116,7 @@ export const workouts: WorkoutDay[] = [
     ]
   },
   {
-    day: "Wed",
-    focus: "Light mobility + prehab",
-    tag: "Recovery",
-    exercises: [
-      { name: "Walk", detail: "20-30 minutes" },
-      { name: "Double-leg bridge", detail: "3 x 15" },
-      { name: "Dead bug", detail: "3 x 10 each side" },
-      { name: "Gentle mobility", detail: "Pain-free range only" }
-    ]
-  },
-  {
-    day: "Thu",
+    day: "Fri",
     focus: "Upper body: hypertrophy",
     tag: "Training",
     exercises: [

@@ -12,6 +12,8 @@ import {
   Home,
   MessageCircle,
   Moon,
+  Pause,
+  Play,
   Plus,
   RefreshCcw,
   Send,
@@ -19,7 +21,9 @@ import {
   ShieldAlert,
   Sparkles,
   Target,
+  Timer,
   Trophy,
+  Trash2,
   Wallet,
   Waves,
   Zap
@@ -42,6 +46,16 @@ import { useLocalStorage } from "./hooks/useLocalStorage";
 
 type View = "dashboard" | "workouts" | "nutrition" | "prehab" | "lifestyle" | "assistant" | "settings";
 type ChatMessage = { role: "user" | "assistant"; content: string };
+type TimerMode = "exercise" | "rest";
+type WorkoutSet = { id: string; weight: string; reps: string; done: boolean };
+type WorkoutExercise = { id: string; name: string; note: string; sets: WorkoutSet[] };
+type WorkoutPlan = {
+  id: string;
+  day: string;
+  focus: string;
+  tag: "Training" | "Recovery";
+  exercises: WorkoutExercise[];
+};
 
 type AppState = {
   checked: Record<string, boolean>;
@@ -50,6 +64,9 @@ type AppState = {
   bodyWeight: string;
   notes: string;
   customTasks: string[];
+  workoutPlans: WorkoutPlan[];
+  restSeconds: number;
+  exerciseSeconds: number;
 };
 
 const initialState: AppState = {
@@ -58,7 +75,10 @@ const initialState: AppState = {
   sleep: 8,
   bodyWeight: "180",
   notes: defaultNotes,
-  customTasks: ["Text a friend about weekend plans", "Prep rice and protein for tomorrow"]
+  customTasks: ["Text a friend about weekend plans", "Prep rice and protein for tomorrow"],
+  workoutPlans: createInitialWorkoutPlans(),
+  restSeconds: 90,
+  exerciseSeconds: 45
 };
 
 const initialMessages: ChatMessage[] = [
@@ -95,6 +115,11 @@ function App() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [chatError, setChatError] = useState("");
   const [messages, setMessages] = useLocalStorage<ChatMessage[]>("ultimatum-chat", initialMessages);
+  const [activeTimer, setActiveTimer] = useState<{ mode: TimerMode; remaining: number; running: boolean }>({
+    mode: "rest",
+    remaining: initialState.restSeconds,
+    running: false
+  });
 
   useEffect(() => {
     const onBeforeInstallPrompt = (event: Event) => {
@@ -106,10 +131,37 @@ function App() {
     return () => window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
   }, []);
 
-  const completedCount = dailyChecklist.filter((item) => state.checked[item]).length;
-  const todayWorkout = getWorkoutForToday();
+  useEffect(() => {
+    setState((current) => hydrateState(current));
+  }, [setState]);
+
+  useEffect(() => {
+    if (!activeTimer.running) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setActiveTimer((current) => {
+        if (!current.running) {
+          return current;
+        }
+
+        if (current.remaining <= 1) {
+          return { ...current, remaining: 0, running: false };
+        }
+
+        return { ...current, remaining: current.remaining - 1 };
+      });
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [activeTimer.running]);
+
+  const appState = hydrateState(state);
+  const completedCount = dailyChecklist.filter((item) => appState.checked[item]).length;
+  const todayWorkout = getWorkoutForToday(appState.workoutPlans);
   const progress = Math.round((completedCount / dailyChecklist.length) * 100);
-  const readiness = Math.min(99, Math.round(progress * 0.55 + state.sleep * 5 + Math.min(state.water, 3.5) * 4));
+  const readiness = Math.min(99, Math.round(progress * 0.55 + appState.sleep * 5 + Math.min(appState.water, 3.5) * 4));
 
   const toggleCheck = (item: string) => {
     setState((current) => ({
@@ -147,10 +199,10 @@ function App() {
     setIsChatLoading(true);
 
     try {
-      const content = await getChatAnswer(userMessage.content, state, todayWorkout.focus);
+      const content = await getChatAnswer(userMessage.content, appState, todayWorkout.focus);
       setMessages((current) => [...current, { role: "assistant", content }]);
     } catch (error) {
-      const fallback = answerFromContext(userMessage.content, state, todayWorkout.focus);
+      const fallback = answerFromContext(userMessage.content, appState, todayWorkout.focus);
       const errorText = error instanceof Error ? error.message : "Claude chat failed.";
 
       setChatError(`${errorText} Showing local app fallback.`);
@@ -257,7 +309,7 @@ function App() {
 
         {view === "dashboard" && (
           <Dashboard
-            state={state}
+            state={appState}
             setState={setState}
             todayWorkout={todayWorkout}
             readiness={readiness}
@@ -269,13 +321,20 @@ function App() {
           />
         )}
         {view === "workouts" && (
-          <Workouts state={state} setState={setState} todayWorkout={todayWorkout} startPrompt={startPrompt} />
+          <Workouts
+            state={appState}
+            setState={setState}
+            todayWorkout={todayWorkout}
+            activeTimer={activeTimer}
+            setActiveTimer={setActiveTimer}
+            startPrompt={startPrompt}
+          />
         )}
         {view === "nutrition" && <Nutrition startPrompt={startPrompt} />}
         {view === "prehab" && <Prehab startPrompt={startPrompt} />}
         {view === "lifestyle" && (
           <Lifestyle
-            state={state}
+            state={appState}
             setState={setState}
             taskInput={taskInput}
             setTaskInput={setTaskInput}
@@ -410,7 +469,12 @@ function Dashboard({
         <PanelTitle label="Next exercises" icon={Dumbbell} meta={todayWorkout.day} />
         <div className="exercise-list">
           {todayWorkout.exercises.slice(0, 6).map((exercise) => (
-            <ExerciseRow key={exercise.name} name={exercise.name} detail={exercise.detail} note={exercise.note} />
+            <ExerciseRow
+              key={exercise.id}
+              name={exercise.name}
+              detail={`${exercise.sets.length} sets x ${exercise.sets[0]?.reps || "?"} reps`}
+              note={exercise.note}
+            />
           ))}
         </div>
       </article>
@@ -434,20 +498,163 @@ function Workouts({
   state,
   setState,
   todayWorkout,
+  activeTimer,
+  setActiveTimer,
   startPrompt
 }: {
   state: AppState;
   setState: Dispatch<SetStateAction<AppState>>;
-  todayWorkout: ReturnType<typeof getWorkoutForToday>;
+  todayWorkout: WorkoutPlan;
+  activeTimer: { mode: TimerMode; remaining: number; running: boolean };
+  setActiveTimer: Dispatch<SetStateAction<{ mode: TimerMode; remaining: number; running: boolean }>>;
   startPrompt: (prompt: string) => void;
 }) {
+  const [selectedPlanId, setSelectedPlanId] = useState(todayWorkout.id);
+  const [newExerciseName, setNewExerciseName] = useState("");
+  const selectedPlan = state.workoutPlans.find((plan) => plan.id === selectedPlanId) ?? todayWorkout;
+  const completedSets = selectedPlan.exercises.flatMap((exercise) => exercise.sets).filter((set) => set.done).length;
+  const totalSets = selectedPlan.exercises.flatMap((exercise) => exercise.sets).length;
+  const volume = selectedPlan.exercises.reduce(
+    (sum, exercise) =>
+      sum +
+      exercise.sets.reduce((setSum, set) => {
+        const weight = Number(set.weight);
+        const reps = Number(set.reps);
+        return setSum + (Number.isFinite(weight) && Number.isFinite(reps) ? weight * reps : 0);
+      }, 0),
+    0
+  );
+
+  const updatePlan = (updater: (plan: WorkoutPlan) => WorkoutPlan) => {
+    setState((current) => {
+      const hydrated = hydrateState(current);
+      return {
+        ...hydrated,
+        workoutPlans: hydrated.workoutPlans.map((plan) => (plan.id === selectedPlan.id ? updater(plan) : plan))
+      };
+    });
+  };
+
+  const updateExercise = (exerciseId: string, patch: Partial<WorkoutExercise>) => {
+    updatePlan((plan) => ({
+      ...plan,
+      exercises: plan.exercises.map((exercise) => (exercise.id === exerciseId ? { ...exercise, ...patch } : exercise))
+    }));
+  };
+
+  const updateSet = (exerciseId: string, setId: string, patch: Partial<WorkoutSet>) => {
+    updatePlan((plan) => ({
+      ...plan,
+      exercises: plan.exercises.map((exercise) =>
+        exercise.id === exerciseId
+          ? {
+              ...exercise,
+              sets: exercise.sets.map((set) => (set.id === setId ? { ...set, ...patch } : set))
+            }
+          : exercise
+      )
+    }));
+  };
+
+  const addSet = (exerciseId: string) => {
+    updatePlan((plan) => ({
+      ...plan,
+      exercises: plan.exercises.map((exercise) => {
+        if (exercise.id !== exerciseId) {
+          return exercise;
+        }
+
+        const previous = exercise.sets[exercise.sets.length - 1] ?? { weight: "", reps: "", done: false };
+        return {
+          ...exercise,
+          sets: [
+            ...exercise.sets,
+            {
+              id: createId("set"),
+              weight: previous.weight,
+              reps: previous.reps,
+              done: false
+            }
+          ]
+        };
+      })
+    }));
+  };
+
+  const removeSet = (exerciseId: string, setId: string) => {
+    updatePlan((plan) => ({
+      ...plan,
+      exercises: plan.exercises.map((exercise) =>
+        exercise.id === exerciseId
+          ? { ...exercise, sets: exercise.sets.filter((set) => set.id !== setId) }
+          : exercise
+      )
+    }));
+  };
+
+  const removeExercise = (exerciseId: string) => {
+    updatePlan((plan) => ({
+      ...plan,
+      exercises: plan.exercises.filter((exercise) => exercise.id !== exerciseId)
+    }));
+  };
+
+  const addExercise = (event: FormEvent) => {
+    event.preventDefault();
+
+    if (!newExerciseName.trim()) {
+      return;
+    }
+
+    updatePlan((plan) => ({
+      ...plan,
+      exercises: [
+        ...plan.exercises,
+        {
+          id: createId("exercise"),
+          name: newExerciseName.trim(),
+          note: "Custom movement",
+          sets: [createWorkoutSet(0, "0", "8")]
+        }
+      ]
+    }));
+    setNewExerciseName("");
+  };
+
+  const startTimer = (mode: TimerMode) => {
+    setActiveTimer({
+      mode,
+      remaining: mode === "rest" ? state.restSeconds : state.exerciseSeconds,
+      running: true
+    });
+  };
+
   return (
     <section className="workout-layout">
       <aside className="panel workout-summary">
-        <PanelTitle label="Current session" icon={Zap} meta={todayWorkout.day} />
-        <h3>{todayWorkout.focus}</h3>
-        <p>Power work first, isolation last. Respect hip symptoms before chasing load.</p>
-        <button className="primary-pill" type="button" onClick={() => setState((current) => ({ ...current, checked: { ...current.checked, "Move or train": true } }))}>
+        <PanelTitle label="Current session" icon={Zap} meta={selectedPlan.day} />
+        <select className="select-line" value={selectedPlanId} onChange={(event) => setSelectedPlanId(event.target.value)}>
+          {state.workoutPlans.map((plan) => (
+            <option key={plan.id} value={plan.id}>
+              {plan.day} - {plan.focus}
+            </option>
+          ))}
+        </select>
+        <label className="stack-field">
+          <span>Session focus</span>
+          <input value={selectedPlan.focus} onChange={(event) => updatePlan((plan) => ({ ...plan, focus: event.target.value }))} />
+        </label>
+        <p>{completedSets}/{totalSets || 0} sets complete. Total planned volume: {Math.round(volume).toLocaleString()} lb.</p>
+        <button
+          className="primary-pill"
+          type="button"
+          onClick={() =>
+            setState((current) => ({
+              ...hydrateState(current),
+              checked: { ...hydrateState(current).checked, "Move or train": true }
+            }))
+          }
+        >
           <Check size={17} />
           Mark trained
         </button>
@@ -458,28 +665,114 @@ function Workouts({
       </aside>
 
       <div className="session-board panel">
-        <PanelTitle label="Today's workout" icon={Dumbbell} meta={todayWorkout.tag} />
-        <div className="session-list">
-          {todayWorkout.exercises.map((exercise, index) => (
-            <article className="session-row" key={exercise.name}>
-              <div className="sequence-dot">{index + 1}</div>
-              <div>
-                <strong>{exercise.name}</strong>
-                <span>{exercise.note || "Standard loading"}</span>
+        <PanelTitle label="Session manager" icon={Dumbbell} meta={selectedPlan.tag} />
+        <form className="add-form exercise-add-form" onSubmit={addExercise}>
+          <input value={newExerciseName} onChange={(event) => setNewExerciseName(event.target.value)} placeholder="Add exercise" />
+          <button type="submit" title="Add exercise">
+            <Plus size={18} />
+          </button>
+        </form>
+        <div className="exercise-manager">
+          {selectedPlan.exercises.map((exercise, exerciseIndex) => (
+            <article className="exercise-card" key={exercise.id}>
+              <div className="exercise-card-head">
+                <div className="sequence-dot">{exerciseIndex + 1}</div>
+                <div className="exercise-title-edit">
+                  <input value={exercise.name} onChange={(event) => updateExercise(exercise.id, { name: event.target.value })} />
+                  <input value={exercise.note} onChange={(event) => updateExercise(exercise.id, { note: event.target.value })} />
+                </div>
+                <button type="button" title="Remove exercise" onClick={() => removeExercise(exercise.id)}>
+                  <Trash2 size={17} />
+                </button>
               </div>
-              <p>{exercise.detail}</p>
+
+              <div className="sets-grid">
+                <span>Set</span>
+                <span>Weight</span>
+                <span>Reps</span>
+                <span>Done</span>
+                <span />
+                {exercise.sets.map((set, setIndex) => (
+                  <div className={set.done ? "set-row done" : "set-row"} key={set.id}>
+                    <strong>{setIndex + 1}</strong>
+                    <input
+                      aria-label={`${exercise.name} set ${setIndex + 1} weight`}
+                      value={set.weight}
+                      inputMode="decimal"
+                      onChange={(event) => updateSet(exercise.id, set.id, { weight: event.target.value })}
+                    />
+                    <input
+                      aria-label={`${exercise.name} set ${setIndex + 1} reps`}
+                      value={set.reps}
+                      inputMode="numeric"
+                      onChange={(event) => updateSet(exercise.id, set.id, { reps: event.target.value })}
+                    />
+                    <button type="button" title="Toggle set done" onClick={() => updateSet(exercise.id, set.id, { done: !set.done })}>
+                      {set.done && <Check size={15} />}
+                    </button>
+                    <button type="button" title="Remove set" onClick={() => removeSet(exercise.id, set.id)}>
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button className="full-ghost compact" type="button" onClick={() => addSet(exercise.id)}>
+                <Plus size={16} />
+                Add set
+              </button>
             </article>
           ))}
         </div>
       </div>
 
+      <div className="panel timer-panel">
+        <PanelTitle label="Gym timers" icon={Timer} meta={activeTimer.mode} />
+        <div className="timer-display">{formatSeconds(activeTimer.remaining)}</div>
+        <div className="timer-controls">
+          <button type="button" onClick={() => setActiveTimer((current) => ({ ...current, running: !current.running }))}>
+            {activeTimer.running ? <Pause size={18} /> : <Play size={18} />}
+            {activeTimer.running ? "Pause" : "Resume"}
+          </button>
+          <button type="button" onClick={() => startTimer("exercise")}>Exercise</button>
+          <button type="button" onClick={() => startTimer("rest")}>Rest</button>
+        </div>
+        <div className="timer-settings">
+          <label>
+            <span>Exercise seconds</span>
+            <input
+              value={state.exerciseSeconds}
+              inputMode="numeric"
+              onChange={(event) =>
+                setState((current) => ({
+                  ...hydrateState(current),
+                  exerciseSeconds: Math.max(1, Number(event.target.value) || 1)
+                }))
+              }
+            />
+          </label>
+          <label>
+            <span>Rest seconds</span>
+            <input
+              value={state.restSeconds}
+              inputMode="numeric"
+              onChange={(event) =>
+                setState((current) => ({
+                  ...hydrateState(current),
+                  restSeconds: Math.max(1, Number(event.target.value) || 1)
+                }))
+              }
+            />
+          </label>
+        </div>
+      </div>
+
       <div className="week-strip">
-        {workouts.map((workout) => (
-          <article className={workout.focus === todayWorkout.focus ? "week-card active" : "week-card"} key={`${workout.day}-${workout.focus}`}>
+        {state.workoutPlans.map((workout) => (
+          <button className={workout.id === selectedPlan.id ? "week-card active" : "week-card"} key={workout.id} onClick={() => setSelectedPlanId(workout.id)} type="button">
             <span>{workout.day}</span>
             <strong>{workout.focus}</strong>
             <small>{workout.tag}</small>
-          </article>
+          </button>
         ))}
       </div>
     </section>
@@ -834,9 +1127,9 @@ function CheckLine({ text }: { text: string }) {
   );
 }
 
-function getWorkoutForToday() {
+function getWorkoutForToday(workoutPlans: WorkoutPlan[]) {
   const day = new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(new Date());
-  return workouts.find((workout) => workout.day === day) ?? workouts[0];
+  return workoutPlans.find((workout) => workout.day === day) ?? workoutPlans[0];
 }
 
 function getViewTitle(view: View) {
@@ -927,7 +1220,7 @@ async function getChatAnswer(input: string, state: AppState, todayFocus: string)
     })
   });
 
-  const data = await response.json();
+  const data = await readJsonResponse(response);
 
   if (!response.ok) {
     throw new Error(data?.error || "Claude chat request failed.");
@@ -938,6 +1231,110 @@ async function getChatAnswer(input: string, state: AppState, todayFocus: string)
 
 function isClaudeChatEnabled() {
   return import.meta.env.VITE_USE_CLAUDE_CHAT === "true";
+}
+
+async function readJsonResponse(response: Response) {
+  const text = await response.text();
+
+  if (!text.trim()) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: text };
+  }
+}
+
+function hydrateState(state: AppState): AppState {
+  return {
+    ...initialState,
+    ...state,
+    checked: state.checked ?? {},
+    customTasks: state.customTasks ?? initialState.customTasks,
+    workoutPlans: normalizeWorkoutPlans(state.workoutPlans),
+    restSeconds: state.restSeconds || initialState.restSeconds,
+    exerciseSeconds: state.exerciseSeconds || initialState.exerciseSeconds
+  };
+}
+
+function normalizeWorkoutPlans(plans?: WorkoutPlan[]) {
+  if (!Array.isArray(plans) || plans.length === 0) {
+    return createInitialWorkoutPlans();
+  }
+
+  return plans.map((plan) => ({
+    ...plan,
+    id: plan.id || createId("plan"),
+    tag: plan.tag || "Training",
+    exercises: Array.isArray(plan.exercises)
+      ? plan.exercises.map((exercise) => ({
+          ...exercise,
+          id: exercise.id || createId("exercise"),
+          note: exercise.note || "Standard loading",
+          sets:
+            Array.isArray(exercise.sets) && exercise.sets.length > 0
+              ? exercise.sets.map((set, index) => ({
+                  id: set.id || createId("set"),
+                  weight: set.weight ?? "",
+                  reps: set.reps ?? String(index + 1),
+                  done: Boolean(set.done)
+                }))
+              : [createWorkoutSet(0, "0", "8")]
+        }))
+      : []
+  }));
+}
+
+function createInitialWorkoutPlans(): WorkoutPlan[] {
+  return workouts.map((workout) => ({
+    id: workout.day.toLowerCase(),
+    day: workout.day,
+    focus: workout.focus,
+    tag: workout.tag,
+    exercises: workout.exercises.map((exercise, exerciseIndex) => {
+      const parsed = parseExerciseDetail(exercise.detail);
+      return {
+        id: `${workout.day.toLowerCase()}-${exerciseIndex}`,
+        name: exercise.name,
+        note: exercise.note || exercise.detail,
+        sets: Array.from({ length: parsed.sets }, (_, setIndex) =>
+          createWorkoutSet(setIndex, parsed.weight, parsed.reps)
+        )
+      };
+    })
+  }));
+}
+
+function parseExerciseDetail(detail: string) {
+  const setsMatch = detail.match(/(\d+)\s*x/i);
+  const repsMatch = detail.match(/x\s*([\d-]+)/i);
+
+  return {
+    sets: Math.max(1, Number(setsMatch?.[1]) || 3),
+    reps: repsMatch?.[1] || "8",
+    weight: "0"
+  };
+}
+
+function createWorkoutSet(index: number, weight: string, reps: string): WorkoutSet {
+  return {
+    id: createId(`set-${index}`),
+    weight,
+    reps,
+    done: false
+  };
+}
+
+function createId(prefix: string) {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function formatSeconds(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function buildAppContext(state: AppState, todayFocus: string) {
@@ -955,7 +1352,7 @@ function buildAppContext(state: AppState, todayFocus: string) {
     },
     macroTargets,
     meals,
-    workouts,
+    workouts: state.workoutPlans,
     prehab,
     summerGoals,
     budgetItems

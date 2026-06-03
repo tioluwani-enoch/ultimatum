@@ -31,7 +31,7 @@ Copy `.env.example` to `.env`, then add your Anthropic key:
 
 ```bash
 ANTHROPIC_API_KEY=your_key_here
-ANTHROPIC_MODEL=claude-sonnet-4-6
+ANTHROPIC_MODEL=claude-sonnet-4-20250514
 VITE_USE_CLAUDE_CHAT=true
 VITE_CHAT_API_URL=/api/chat
 ```

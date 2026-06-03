@@ -747,13 +747,56 @@ input:disabled {
 .workout-layout {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
-  gap: 20px;
+  align-items: start;
+  gap: 24px;
 }
 
 .workout-summary {
   align-self: start;
   display: grid;
   gap: 14px;
+}
+
+.select-line,
+.stack-field input,
+.exercise-title-edit input,
+.sets-grid input,
+.timer-settings input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  padding: 10px 12px;
+}
+
+.select-line:focus,
+.stack-field input:focus,
+.exercise-title-edit input:focus,
+.sets-grid input:focus,
+.timer-settings input:focus {
+  border-color: rgba(55, 138, 221, 0.65);
+}
+
+.select-line {
+  color-scheme: dark;
+}
+
+.stack-field {
+  display: grid;
+  gap: 8px;
+}
+
+.stack-field span,
+.timer-settings span,
+.sets-grid > span {
+  color: var(--dim);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .workout-summary h3,
@@ -776,9 +819,14 @@ input:disabled {
   min-height: 100%;
 }
 
+.exercise-add-form {
+  margin-bottom: 18px;
+}
+
+.exercise-manager,
 .session-list {
   display: grid;
-  gap: 2px;
+  gap: 18px;
 }
 
 .session-row {
@@ -788,6 +836,135 @@ input:disabled {
   gap: 14px;
   border-bottom: 1px solid var(--line);
   padding: 13px 0;
+}
+
+.exercise-card {
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(10, 10, 10, 0.38);
+  padding: 16px;
+}
+
+.exercise-card-head {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 38px;
+  align-items: center;
+  gap: 14px;
+}
+
+.exercise-card-head > button,
+.sets-grid button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-low);
+  color: var(--muted);
+}
+
+.exercise-card-head > button:hover,
+.sets-grid button:hover {
+  color: var(--red);
+}
+
+.exercise-title-edit {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.85fr) minmax(160px, 1.15fr);
+  gap: 10px;
+}
+
+.exercise-title-edit input:first-child {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.sets-grid {
+  display: grid;
+  grid-template-columns: 56px minmax(92px, 1fr) minmax(84px, 0.8fr) 58px 42px;
+  gap: 8px;
+  align-items: center;
+}
+
+.sets-grid > span {
+  padding: 0 4px;
+}
+
+.set-row {
+  display: contents;
+}
+
+.set-row strong {
+  display: grid;
+  min-height: 40px;
+  place-items: center;
+  border-radius: var(--radius);
+  background: var(--surface-low);
+  color: var(--text);
+}
+
+.set-row.done strong,
+.set-row.done input {
+  border-color: rgba(99, 153, 34, 0.4);
+  background: rgba(99, 153, 34, 0.1);
+}
+
+.set-row button:nth-of-type(1) {
+  color: var(--green);
+}
+
+.full-ghost.compact {
+  min-height: 38px;
+  margin-top: 0;
+}
+
+.timer-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.timer-display {
+  color: var(--blue);
+  font-family: "JetBrains Mono", monospace;
+  font-size: clamp(42px, 7vw, 72px);
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+}
+
+.timer-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.timer-controls button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(55, 138, 221, 0.45);
+  border-radius: 999px;
+  background: rgba(55, 138, 221, 0.08);
+  color: var(--blue);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.timer-settings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.timer-settings label {
+  display: grid;
+  gap: 8px;
 }
 
 .sequence-dot,
@@ -816,7 +993,9 @@ input:disabled {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
+  color: var(--text);
   padding: 14px;
+  text-align: left;
 }
 
 .week-card.active {
@@ -1281,6 +1460,29 @@ input:disabled {
 
   .session-row p {
     grid-column: 2;
+  }
+
+  .exercise-card-head,
+  .exercise-title-edit {
+    grid-template-columns: 1fr;
+  }
+
+  .exercise-card-head .sequence-dot {
+    justify-self: start;
+  }
+
+  .sets-grid {
+    grid-template-columns: 42px minmax(74px, 1fr) minmax(62px, 0.8fr) 42px 38px;
+    gap: 6px;
+  }
+
+  .sets-grid input {
+    padding: 9px 7px;
+  }
+
+  .timer-controls,
+  .timer-settings {
+    grid-template-columns: 1fr;
   }
 
   .meal-content div,
