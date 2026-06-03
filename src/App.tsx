@@ -1,11 +1,13 @@
 import {
   Activity,
   Apple,
+  Bell,
+  Bot,
   CalendarDays,
   Check,
-  ChevronRight,
+  CircleUser,
   Dumbbell,
-  Flame,
+  Gauge,
   HeartPulse,
   Home,
   MessageCircle,
@@ -13,13 +15,17 @@ import {
   Plus,
   RefreshCcw,
   Send,
+  Settings,
+  ShieldAlert,
   Sparkles,
   Target,
   Trophy,
   Wallet,
-  Waves
+  Waves,
+  Zap
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
+import type { CSSProperties, Dispatch, SetStateAction } from "react";
 import {
   budgetItems,
   dailyChecklist,
@@ -34,7 +40,7 @@ import {
 } from "./data/appData";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 
-type View = "dashboard" | "training" | "food" | "planner" | "life" | "chat";
+type View = "dashboard" | "workouts" | "nutrition" | "prehab" | "lifestyle" | "assistant" | "settings";
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
 type AppState = {
@@ -55,13 +61,29 @@ const initialState: AppState = {
   customTasks: ["Text a friend about weekend plans", "Prep rice and protein for tomorrow"]
 };
 
+const initialMessages: ChatMessage[] = [
+  {
+    role: "assistant",
+    content:
+      "Ultimatum context is loaded: training split, nutrition targets, meal timing, iliopsoas guardrails, summer goals, budget, checklist, and live notes. Ask me what to do next."
+  }
+];
+
 const navItems: Array<{ id: View; label: string; icon: typeof Home }> = [
-  { id: "dashboard", label: "Today", icon: Home },
-  { id: "training", label: "Training", icon: Dumbbell },
-  { id: "food", label: "Food", icon: Apple },
-  { id: "planner", label: "Planner", icon: CalendarDays },
-  { id: "life", label: "Life", icon: Trophy },
-  { id: "chat", label: "Chat", icon: MessageCircle }
+  { id: "dashboard", label: "Dashboard", icon: Home },
+  { id: "workouts", label: "Workouts", icon: Dumbbell },
+  { id: "nutrition", label: "Nutrition", icon: Apple },
+  { id: "prehab", label: "Prehab", icon: HeartPulse },
+  { id: "lifestyle", label: "Lifestyle", icon: Trophy },
+  { id: "assistant", label: "AI Assistant", icon: Bot },
+  { id: "settings", label: "Settings", icon: Settings }
+];
+
+const supplementStack = [
+  ["Creatine monohydrate", "5g daily"],
+  ["Whey protein", "Use to hit protein"],
+  ["Fish oil", "2-3g EPA/DHA"],
+  ["Magnesium glycinate", "300mg before sleep"]
 ];
 
 function App() {
@@ -72,13 +94,7 @@ function App() {
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [chatError, setChatError] = useState("");
-  const [messages, setMessages] = useLocalStorage<ChatMessage[]>("ultimatum-chat", [
-    {
-      role: "assistant",
-      content:
-        "I have the app context loaded: your lean bulk targets, workout split, meal timing, hip prehab rules, summer goals, budget guardrails, and your current checklist."
-    }
-  ]);
+  const [messages, setMessages] = useLocalStorage<ChatMessage[]>("ultimatum-chat", initialMessages);
 
   useEffect(() => {
     const onBeforeInstallPrompt = (event: Event) => {
@@ -93,6 +109,7 @@ function App() {
   const completedCount = dailyChecklist.filter((item) => state.checked[item]).length;
   const todayWorkout = getWorkoutForToday();
   const progress = Math.round((completedCount / dailyChecklist.length) * 100);
+  const readiness = Math.min(99, Math.round(progress * 0.55 + state.sleep * 5 + Math.min(state.water, 3.5) * 4));
 
   const toggleCheck = (item: string) => {
     setState((current) => ({
@@ -153,16 +170,50 @@ function App() {
     setInstallPrompt(null);
   };
 
+  const logWorkout = () => {
+    setState((current) => ({
+      ...current,
+      checked: { ...current.checked, "Move or train": true }
+    }));
+    setView("workouts");
+  };
+
+  const startPrompt = (prompt: string) => {
+    setChatInput(prompt);
+    setChatError("");
+    setView("assistant");
+  };
+
+  const resetLocalState = () => {
+    setState(initialState);
+    setMessages(initialMessages);
+    setChatInput("");
+    setChatError("");
+  };
+
   return (
     <div className="app-shell">
-      <aside className="sidebar" aria-label="Primary">
-        <div className="brand-lockup">
-          <span className="brand-mark">
+      <header className="top-app-bar">
+        <strong>{summerProfile.title}</strong>
+        <div className="topbar-actions">
+          <span className="status-chip">{isClaudeChatEnabled() ? "Claude linked" : "Local AI fallback"}</span>
+          <button type="button" title="Notifications">
+            <Bell size={20} />
+          </button>
+          <button type="button" title="Profile">
+            <CircleUser size={21} />
+          </button>
+        </div>
+      </header>
+
+      <aside className="side-rail" aria-label="Primary navigation">
+        <div className="brand-block">
+          <div className="brand-icon">
             <Waves size={23} />
-          </span>
+          </div>
           <div>
-            <strong>{summerProfile.title}</strong>
-            <span>{summerProfile.stats.goal}</span>
+            <h1>{summerProfile.title}</h1>
+            <p>Elite performance</p>
           </div>
         </div>
 
@@ -175,61 +226,80 @@ function App() {
               type="button"
               title={item.label}
             >
-              <item.icon size={18} />
+              <item.icon size={20} />
               <span>{item.label}</span>
             </button>
           ))}
         </nav>
 
-        <button className="install-button" onClick={runInstall} type="button" disabled={!installPrompt}>
-          <Sparkles size={17} />
-          <span>{installPrompt ? "Install app" : "PWA ready"}</span>
-        </button>
+        <div className="rail-actions">
+          <button className="primary-pill" onClick={logWorkout} type="button">
+            <Plus size={18} />
+            Log workout
+          </button>
+          <button className="ghost-pill" onClick={() => startPrompt("Analyze today's plan and tell me the next best move.")} type="button">
+            <Bot size={18} />
+            Ask Ultimatum
+          </button>
+        </div>
       </aside>
 
-      <main className="main-surface">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">Summer command center</p>
-            <h1>{getViewTitle(view)}</h1>
-          </div>
-          <div className="top-actions">
-            <MetricPill icon={Activity} label="Done" value={`${completedCount}/${dailyChecklist.length}`} />
-            <MetricPill icon={Moon} label="Sleep" value={`${state.sleep}h`} />
-          </div>
-        </header>
+      <main className={view === "assistant" ? "main-canvas assistant-mode" : "main-canvas"}>
+        {view !== "assistant" && (
+          <section className="screen-heading">
+            <p>{getViewKicker(view)}</p>
+            <div>
+              <h2>{getViewTitle(view)}</h2>
+              <span>{getViewSubtitle(view, todayWorkout.focus)}</span>
+            </div>
+          </section>
+        )}
 
         {view === "dashboard" && (
           <Dashboard
             state={state}
             setState={setState}
             todayWorkout={todayWorkout}
-            completedCount={completedCount}
+            readiness={readiness}
             progress={progress}
+            completedCount={completedCount}
             toggleCheck={toggleCheck}
             setView={setView}
+            startPrompt={startPrompt}
           />
         )}
-        {view === "training" && <Training state={state} setState={setState} />}
-        {view === "food" && <Food />}
-        {view === "planner" && (
-          <Planner
+        {view === "workouts" && (
+          <Workouts state={state} setState={setState} todayWorkout={todayWorkout} startPrompt={startPrompt} />
+        )}
+        {view === "nutrition" && <Nutrition startPrompt={startPrompt} />}
+        {view === "prehab" && <Prehab startPrompt={startPrompt} />}
+        {view === "lifestyle" && (
+          <Lifestyle
             state={state}
             setState={setState}
             taskInput={taskInput}
             setTaskInput={setTaskInput}
             addTask={addTask}
+            startPrompt={startPrompt}
           />
         )}
-        {view === "life" && <Life state={state} setState={setState} />}
-        {view === "chat" && (
-          <Chat
+        {view === "assistant" && (
+          <Assistant
             messages={messages}
             chatInput={chatInput}
             setChatInput={setChatInput}
             sendChat={sendChat}
             isChatLoading={isChatLoading}
             chatError={chatError}
+            startPrompt={startPrompt}
+          />
+        )}
+        {view === "settings" && (
+          <SettingsPanel
+            installPrompt={installPrompt}
+            runInstall={runInstall}
+            resetLocalState={resetLocalState}
+            startPrompt={startPrompt}
           />
         )}
       </main>
@@ -241,308 +311,337 @@ function Dashboard({
   state,
   setState,
   todayWorkout,
-  completedCount,
+  readiness,
   progress,
+  completedCount,
   toggleCheck,
-  setView
+  setView,
+  startPrompt
 }: {
   state: AppState;
-  setState: React.Dispatch<React.SetStateAction<AppState>>;
+  setState: Dispatch<SetStateAction<AppState>>;
   todayWorkout: ReturnType<typeof getWorkoutForToday>;
-  completedCount: number;
+  readiness: number;
   progress: number;
+  completedCount: number;
   toggleCheck: (item: string) => void;
   setView: (view: View) => void;
+  startPrompt: (prompt: string) => void;
 }) {
   return (
-    <section className="dashboard-grid">
-      <div className="hero-panel">
-        <img src="/assets/summer-os-banner.png" alt="Summer training planner with ultimate frisbee and meal prep" />
-        <div className="hero-copy">
-          <p className="eyebrow">Today</p>
-          <h2>{todayWorkout.focus}</h2>
-          <p>{summerProfile.tagline}</p>
-          <div className="hero-actions">
-            <button type="button" onClick={() => setView("training")}>
-              <Dumbbell size={18} />
-              Training
-            </button>
-            <button type="button" onClick={() => setView("chat")}>
-              <MessageCircle size={18} />
-              Chat
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="panel focus-panel">
-        <div className="section-head">
+    <section className="bento-grid dashboard-bento">
+      <article className="panel readiness-card span-4 glow-active">
+        <PanelTitle label="Daily readiness" icon={Gauge} />
+        <div className="gauge-wrap" style={{ "--score": readiness } as CSSProperties}>
+          <svg viewBox="0 0 132 132" aria-label={`Readiness ${readiness}`}>
+            <circle className="gauge-track" cx="66" cy="66" r="58" />
+            <circle className="gauge-progress" cx="66" cy="66" r="58" />
+          </svg>
           <div>
-            <p className="eyebrow">Daily score</p>
-            <h2>{progress}% locked</h2>
-          </div>
-          <div className="ring" style={{ "--progress": `${progress}%` } as React.CSSProperties}>
-            {completedCount}
+            <strong>{readiness}</strong>
+            <span>{readiness > 82 ? "Excellent" : readiness > 68 ? "Ready" : "Manage load"}</span>
           </div>
         </div>
-        <div className="checklist">
+        <div className="split-stats">
+          <MetricMini label="Sleep" value={`${state.sleep}h`} />
+          <MetricMini label="Water" value={`${state.water}L`} />
+        </div>
+      </article>
+
+      <article className="panel span-8 hero-data-card">
+        <img src="/assets/summer-os-banner.png" alt="Summer training planner with ultimate frisbee and meal prep" />
+        <div className="hero-data-copy">
+          <p>Today protocol</p>
+          <h3>{todayWorkout.focus}</h3>
+          <span>{summerProfile.tagline}</span>
+          <div className="inline-actions">
+            <button type="button" onClick={() => setView("workouts")}>
+              <Dumbbell size={18} />
+              View session
+            </button>
+            <button type="button" onClick={() => startPrompt("Coach me through today's workout and recovery priorities.")}>
+              <Bot size={18} />
+              Coach me
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <article className="panel span-4">
+        <PanelTitle label="Daily checklist" icon={Target} meta={`${completedCount}/${dailyChecklist.length}`} />
+        <div className="thin-progress">
+          <span style={{ width: `${progress}%` }} />
+        </div>
+        <div className="check-stack">
           {dailyChecklist.map((item) => (
-            <button
-              className={state.checked[item] ? "check-row done" : "check-row"}
-              key={item}
-              type="button"
-              onClick={() => toggleCheck(item)}
-            >
-              <span>{state.checked[item] && <Check size={14} />}</span>
+            <button className={state.checked[item] ? "check-item done" : "check-item"} key={item} onClick={() => toggleCheck(item)} type="button">
+              <span>{state.checked[item] && <Check size={13} />}</span>
               {item}
             </button>
           ))}
         </div>
-      </div>
+      </article>
 
-      <div className="metric-grid">
-        {macroTargets.map((metric) => (
-          <article className={`metric-card ${metric.accent}`} key={metric.label}>
-            <span>{metric.label}</span>
-            <strong>
-              {metric.value}
-              <small>{metric.unit}</small>
-            </strong>
-          </article>
-        ))}
-      </div>
-
-      <div className="panel controls-panel">
-        <h2>Live inputs</h2>
-        <div className="control-row">
-          <label htmlFor="weight">Body weight</label>
+      <article className="panel span-4">
+        <PanelTitle label="Live inputs" icon={Activity} />
+        <label className="field-line">
+          <span>Body weight</span>
           <input
-            id="weight"
             value={state.bodyWeight}
             inputMode="decimal"
             onChange={(event) => setState((current) => ({ ...current, bodyWeight: event.target.value }))}
           />
-          <span>lb</span>
+          <small>lb</small>
+        </label>
+        <Stepper label="Water" value={`${state.water}L`} onMinus={() => setState((c) => ({ ...c, water: Math.max(0, c.water - 0.5) }))} onPlus={() => setState((c) => ({ ...c, water: c.water + 0.5 }))} />
+        <Stepper label="Sleep" value={`${state.sleep}h`} onMinus={() => setState((c) => ({ ...c, sleep: Math.max(0, c.sleep - 0.5) }))} onPlus={() => setState((c) => ({ ...c, sleep: c.sleep + 0.5 }))} />
+      </article>
+
+      <article className="panel span-4">
+        <PanelTitle label="Macro targets" icon={Apple} />
+        <div className="target-stack">
+          {macroTargets.slice(0, 4).map((target, index) => (
+            <TargetBar key={target.label} label={target.label} value={`${target.value} ${target.unit}`} percent={[100, 78, 72, 62][index]} kind={target.accent} />
+          ))}
         </div>
-        <div className="stepper-row">
-          <span>Water</span>
-          <button type="button" onClick={() => setState((current) => ({ ...current, water: Math.max(0, current.water - 1) }))}>
-            -
-          </button>
-          <strong>{state.water}L</strong>
-          <button type="button" onClick={() => setState((current) => ({ ...current, water: current.water + 0.5 }))}>
-            +
-          </button>
+      </article>
+
+      <article className="panel span-5">
+        <PanelTitle label="Next exercises" icon={Dumbbell} meta={todayWorkout.day} />
+        <div className="exercise-list">
+          {todayWorkout.exercises.slice(0, 6).map((exercise) => (
+            <ExerciseRow key={exercise.name} name={exercise.name} detail={exercise.detail} note={exercise.note} />
+          ))}
         </div>
-        <div className="stepper-row">
-          <span>Sleep</span>
-          <button type="button" onClick={() => setState((current) => ({ ...current, sleep: Math.max(0, current.sleep - 0.5) }))}>
-            -
-          </button>
-          <strong>{state.sleep}h</strong>
-          <button type="button" onClick={() => setState((current) => ({ ...current, sleep: current.sleep + 0.5 }))}>
-            +
-          </button>
+      </article>
+
+      <article className="panel span-3">
+        <PanelTitle label="Open loops" icon={CalendarDays} />
+        <div className="compact-list">
+          {state.customTasks.slice(0, 4).map((task) => (
+            <span key={task}>{task}</span>
+          ))}
+        </div>
+        <button className="full-ghost" type="button" onClick={() => setView("lifestyle")}>
+          Manage plan
+        </button>
+      </article>
+    </section>
+  );
+}
+
+function Workouts({
+  state,
+  setState,
+  todayWorkout,
+  startPrompt
+}: {
+  state: AppState;
+  setState: Dispatch<SetStateAction<AppState>>;
+  todayWorkout: ReturnType<typeof getWorkoutForToday>;
+  startPrompt: (prompt: string) => void;
+}) {
+  return (
+    <section className="workout-layout">
+      <aside className="panel workout-summary">
+        <PanelTitle label="Current session" icon={Zap} meta={todayWorkout.day} />
+        <h3>{todayWorkout.focus}</h3>
+        <p>Power work first, isolation last. Respect hip symptoms before chasing load.</p>
+        <button className="primary-pill" type="button" onClick={() => setState((current) => ({ ...current, checked: { ...current.checked, "Move or train": true } }))}>
+          <Check size={17} />
+          Mark trained
+        </button>
+        <button className="ghost-pill" type="button" onClick={() => startPrompt("Modify today's workout around hip safety and athletic power.")}>
+          <Bot size={17} />
+          Modify with AI
+        </button>
+      </aside>
+
+      <div className="session-board panel">
+        <PanelTitle label="Today's workout" icon={Dumbbell} meta={todayWorkout.tag} />
+        <div className="session-list">
+          {todayWorkout.exercises.map((exercise, index) => (
+            <article className="session-row" key={exercise.name}>
+              <div className="sequence-dot">{index + 1}</div>
+              <div>
+                <strong>{exercise.name}</strong>
+                <span>{exercise.note || "Standard loading"}</span>
+              </div>
+              <p>{exercise.detail}</p>
+            </article>
+          ))}
         </div>
       </div>
 
-      <div className="panel next-panel">
-        <div className="section-head">
-          <div>
-            <p className="eyebrow">Next up</p>
-            <h2>{todayWorkout.day}</h2>
-          </div>
-          <span className={todayWorkout.tag === "Training" ? "tag hot" : "tag calm"}>{todayWorkout.tag}</span>
-        </div>
-        <div className="list-lines">
-          {todayWorkout.exercises.slice(0, 5).map((exercise) => (
-            <div className="line-item" key={exercise.name}>
-              <span>{exercise.name}</span>
-              <small>{exercise.detail}</small>
-            </div>
-          ))}
-        </div>
+      <div className="week-strip">
+        {workouts.map((workout) => (
+          <article className={workout.focus === todayWorkout.focus ? "week-card active" : "week-card"} key={`${workout.day}-${workout.focus}`}>
+            <span>{workout.day}</span>
+            <strong>{workout.focus}</strong>
+            <small>{workout.tag}</small>
+          </article>
+        ))}
       </div>
     </section>
   );
 }
 
-function Training({ state, setState }: { state: AppState; setState: React.Dispatch<React.SetStateAction<AppState>> }) {
+function Nutrition({ startPrompt }: { startPrompt: (prompt: string) => void }) {
   return (
-    <section className="content-stack">
-      <div className="module-band warning">
-        <HeartPulse size={20} />
-        <div>
-          <strong>Iliopsoas guardrail</strong>
-          <span>Use pain-free range, avoid aggressive hip flexor stretching, and keep squats near parallel.</span>
-        </div>
+    <section className="nutrition-layout">
+      <div className="nutrition-side">
+        <article className="panel">
+          <PanelTitle label="Daily targets" icon={Apple} meta="3,400 kcal" />
+          <div className="target-stack">
+            <TargetBar label="Protein" value="180g" percent={100} kind="ocean" />
+            <TargetBar label="Carbs" value="430g" percent={82} kind="grass" />
+            <TargetBar label="Fats" value="80g" percent={68} kind="sun" />
+          </div>
+        </article>
+        <article className="panel">
+          <PanelTitle label="Rest day adjustments" icon={RefreshCcw} />
+          <div className="callout dark">
+            Drop 200-300 kcal by reducing rice portions or removing the pre-workout meal.
+          </div>
+          <CheckLine text="Keep protein identical" />
+          <CheckLine text="Reduce carbs by 50-80g" />
+          <CheckLine text="Shift carbs earlier in the day" />
+        </article>
+        <article className="panel">
+          <PanelTitle label="Supplement stack" icon={Sparkles} />
+          <div className="table-list">
+            {supplementStack.map(([name, dose]) => (
+              <div key={name}>
+                <span>{name}</span>
+                <strong>{dose}</strong>
+              </div>
+            ))}
+          </div>
+        </article>
       </div>
 
-      <div className="workout-grid">
-        {workouts.map((workout) => (
-          <article className="panel workout-card" key={`${workout.day}-${workout.focus}`}>
-            <div className="section-head">
-              <div>
-                <p className="eyebrow">{workout.day}</p>
-                <h2>{workout.focus}</h2>
-              </div>
-              <span className={workout.tag === "Training" ? "tag hot" : "tag calm"}>{workout.tag}</span>
-            </div>
-            <div className="list-lines">
-              {workout.exercises.map((exercise) => (
-                <div className="line-item" key={exercise.name}>
-                  <span>{exercise.name}</span>
-                  <small>{exercise.note ? `${exercise.detail} · ${exercise.note}` : exercise.detail}</small>
+      <article className="panel meal-board">
+        <PanelTitle label="Training day timeline" icon={CalendarDays} meta="High volume phase" />
+        <div className="meal-timeline">
+          {meals.map((meal, index) => (
+            <article className={index === 3 ? "meal-item active" : "meal-item"} key={`${meal.time}-${meal.label}`}>
+              <div className="meal-icon">{index === 3 ? <Zap size={19} /> : <Apple size={18} />}</div>
+              <div className="meal-content">
+                <div>
+                  <strong>{meal.meal}</strong>
+                  <span>{meal.time}</span>
                 </div>
-              ))}
-            </div>
+                <p>{meal.detail}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+        <button className="full-ghost" type="button" onClick={() => startPrompt("Build tomorrow's meals around my macro targets and training window.")}>
+          Ask AI to plan meals
+        </button>
+      </article>
+    </section>
+  );
+}
+
+function Prehab({ startPrompt }: { startPrompt: (prompt: string) => void }) {
+  return (
+    <section className="prehab-layout">
+      <article className="panel risk-panel">
+        <PanelTitle label="Iliopsoas safety" icon={ShieldAlert} meta="Pain rule" />
+        <h3>Do not train through acute flares.</h3>
+        <p>Keep pain at or below 3/10. Stop any movement that crosses 4/10, and avoid deep hip flexion under load during symptoms.</p>
+        <button className="primary-pill" type="button" onClick={() => startPrompt("My hip feels tight today. Build a safer training and prehab plan.")}>
+          <Bot size={17} />
+          Injury check-in
+        </button>
+      </article>
+
+      <div className="prehab-grid">
+        {prehab.map((item, index) => (
+          <article className="panel protocol-card" key={item.title}>
+            <div className="sequence-dot">{index + 1}</div>
+            <strong>{item.title}</strong>
+            <p>{item.detail}</p>
           </article>
         ))}
       </div>
 
-      <div className="panel">
-        <div className="section-head">
-          <div>
-            <p className="eyebrow">Prehab</p>
-            <h2>Hip management protocol</h2>
-          </div>
-          <HeartPulse size={24} />
-        </div>
-        <div className="prehab-grid">
-          {prehab.map((item) => (
-            <article className="mini-card" key={item.title}>
-              <strong>{item.title}</strong>
-              <span>{item.detail}</span>
-            </article>
+      <article className="panel avoid-card">
+        <PanelTitle label="Avoid or modify" icon={HeartPulse} />
+        <div className="avoid-grid">
+          {["Deep squats", "Long forward lunges", "Deep leg press", "Hanging leg raises", "Full sit-ups", "Aggressive hip flexor stretches"].map((item) => (
+            <span key={item}>{item}</span>
           ))}
         </div>
-      </div>
-
-      <label className="notes-block">
-        <span>Training notes</span>
-        <textarea
-          value={state.notes}
-          onChange={(event) => setState((current) => ({ ...current, notes: event.target.value }))}
-        />
-      </label>
+      </article>
     </section>
   );
 }
 
-function Food() {
-  return (
-    <section className="content-stack">
-      <div className="macro-layout">
-        <div className="panel">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">Lean bulk</p>
-              <h2>Nutrition targets</h2>
-            </div>
-            <Flame size={24} />
-          </div>
-          <div className="macro-bar" aria-label="Macro split">
-            <span className="protein" />
-            <span className="carbs" />
-            <span className="fat" />
-          </div>
-          <div className="legend">
-            <span><i className="dot protein" /> Protein 21%</span>
-            <span><i className="dot carbs" /> Carbs 51%</span>
-            <span><i className="dot fat" /> Fat 21%</span>
-          </div>
-          <div className="source-grid">
-            <SourceList title="Protein" items={["Chicken / turkey", "Eggs + whites", "Greek yogurt", "Tuna / salmon", "Whey", "Cottage cheese"]} />
-            <SourceList title="Carbs" items={["Oats", "Rice", "Quinoa", "Banana", "Sweet potato", "Wholegrain pasta"]} />
-            <SourceList title="Fats" items={["Avocado", "Olive oil", "Nut butter", "Salmon", "Mackerel", "Nuts"]} />
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">Training day</p>
-              <h2>Meal timing</h2>
-            </div>
-            <Apple size={24} />
-          </div>
-          <div className="timeline">
-            {meals.map((item) => (
-              <article className="time-item" key={`${item.time}-${item.label}`}>
-                <span>{item.time}</span>
-                <strong>{item.meal}</strong>
-                <p>{item.detail}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Planner({
+function Lifestyle({
   state,
   setState,
   taskInput,
   setTaskInput,
-  addTask
+  addTask,
+  startPrompt
 }: {
   state: AppState;
-  setState: React.Dispatch<React.SetStateAction<AppState>>;
+  setState: Dispatch<SetStateAction<AppState>>;
   taskInput: string;
   setTaskInput: (value: string) => void;
   addTask: (event: FormEvent) => void;
+  startPrompt: (prompt: string) => void;
 }) {
   return (
-    <section className="planner-grid">
-      <div className="panel">
-        <div className="section-head">
-          <div>
-            <p className="eyebrow">Week</p>
-            <h2>Summer rhythm</h2>
-          </div>
-          <CalendarDays size={24} />
-        </div>
-        <div className="week-grid">
-          {workouts.map((workout) => (
-            <article key={workout.day} className={workout.tag === "Training" ? "day-cell train" : "day-cell rest"}>
-              <strong>{workout.day}</strong>
-              <span>{workout.focus}</span>
-            </article>
-          ))}
-          <article className="day-cell rest">
-            <strong>Fri</strong>
-            <span>Walk, stretch, reset</span>
+    <section className="lifestyle-layout">
+      <div className="life-metrics">
+        {lifeAreas.map((area) => (
+          <article className="panel metric-tile" key={area.label}>
+            <span>{area.label}</span>
+            <strong>{area.value}</strong>
+            <p>{area.detail}</p>
           </article>
-          <article className="day-cell rest">
-            <strong>Sun</strong>
-            <span>Full rest and plan</span>
-          </article>
-        </div>
+        ))}
       </div>
 
-      <div className="panel">
-        <div className="section-head">
-          <div>
-            <p className="eyebrow">Tasks</p>
-            <h2>Open loops</h2>
-          </div>
-          <Target size={24} />
+      <article className="panel">
+        <PanelTitle label="Season commitments" icon={Trophy} />
+        <div className="commitment-list">
+          {summerGoals.map((goal) => (
+            <CheckLine key={goal} text={goal} />
+          ))}
         </div>
+      </article>
+
+      <article className="panel">
+        <PanelTitle label="Money guardrails" icon={Wallet} />
+        <div className="table-list">
+          {budgetItems.map((item) => (
+            <div key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.amount}</strong>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      <article className="panel task-panel">
+        <PanelTitle label="Open loops" icon={CalendarDays} />
         <form className="add-form" onSubmit={addTask}>
           <input value={taskInput} onChange={(event) => setTaskInput(event.target.value)} placeholder="Add a task" />
           <button type="submit" title="Add task">
             <Plus size={18} />
           </button>
         </form>
-        <div className="list-lines">
+        <div className="task-stack">
           {state.customTasks.map((task, index) => (
-            <div className="line-item task-item" key={`${task}-${index}`}>
+            <div className="task-row" key={`${task}-${index}`}>
               <span>{task}</span>
               <button
                 type="button"
-                title="Remove task"
+                title="Complete task"
                 onClick={() =>
                   setState((current) => ({
                     ...current,
@@ -555,80 +654,27 @@ function Planner({
             </div>
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
+      </article>
 
-function Life({ state, setState }: { state: AppState; setState: React.Dispatch<React.SetStateAction<AppState>> }) {
-  return (
-    <section className="content-stack">
-      <div className="life-grid">
-        {lifeAreas.map((area) => (
-          <article className="metric-card ocean" key={area.label}>
-            <span>{area.label}</span>
-            <strong>{area.value}</strong>
-            <small>{area.detail}</small>
-          </article>
-        ))}
-      </div>
-
-      <div className="life-columns">
-        <div className="panel">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">Goals</p>
-              <h2>Season commitments</h2>
-            </div>
-            <Trophy size={24} />
-          </div>
-          <div className="list-lines">
-            {summerGoals.map((goal) => (
-              <div className="line-item" key={goal}>
-                <span>{goal}</span>
-                <ChevronRight size={16} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="panel">
-          <div className="section-head">
-            <div>
-              <p className="eyebrow">Money</p>
-              <h2>Spending guardrails</h2>
-            </div>
-            <Wallet size={24} />
-          </div>
-          <div className="list-lines">
-            {budgetItems.map((item) => (
-              <div className="line-item" key={item.label}>
-                <span>{item.label}</span>
-                <small>{item.amount}</small>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <label className="notes-block">
-        <span>Life notes</span>
-        <textarea
-          value={state.notes}
-          onChange={(event) => setState((current) => ({ ...current, notes: event.target.value }))}
-        />
+      <label className="panel notes-panel">
+        <PanelTitle label="Life notes" icon={MessageCircle} />
+        <textarea value={state.notes} onChange={(event) => setState((current) => ({ ...current, notes: event.target.value }))} />
+        <button className="full-ghost" type="button" onClick={() => startPrompt("Turn my notes and open loops into a practical plan for this week.")}>
+          Turn notes into plan
+        </button>
       </label>
     </section>
   );
 }
 
-function Chat({
+function Assistant({
   messages,
   chatInput,
   setChatInput,
   sendChat,
   isChatLoading,
-  chatError
+  chatError,
+  startPrompt
 }: {
   messages: ChatMessage[];
   chatInput: string;
@@ -636,72 +682,154 @@ function Chat({
   sendChat: (event: FormEvent) => void;
   isChatLoading: boolean;
   chatError: string;
+  startPrompt: (prompt: string) => void;
 }) {
   return (
-    <section className="chat-layout">
-      <div className="panel context-panel">
-        <div className="section-head">
-          <div>
-            <p className="eyebrow">Context</p>
-            <h2>Loaded into chat</h2>
-          </div>
-          <MessageCircle size={24} />
-        </div>
-        <div className="context-chips">
-          <span>Macros</span>
-          <span>Workout split</span>
-          <span>Meal timing</span>
-          <span>Hip prehab</span>
-          <span>Summer goals</span>
-          <span>Budget</span>
-          <span>Checklist</span>
-          <span>{isClaudeChatEnabled() ? "Claude enabled" : "Local fallback"}</span>
-        </div>
-        {chatError && <p className="chat-error">{chatError}</p>}
+    <section className="assistant-screen">
+      <div className="assistant-stream">
+        {messages.map((message, index) => (
+          <article className={`chat-bubble-row ${message.role}`} key={`${message.role}-${index}`}>
+            <div className="chat-avatar">{message.role === "assistant" ? <Bot size={20} /> : <CircleUser size={20} />}</div>
+            <div>
+              <p>{message.role === "assistant" ? "Ultimatum AI" : "You"}</p>
+              <div className="chat-bubble">{message.content}</div>
+            </div>
+          </article>
+        ))}
+        {isChatLoading && (
+          <article className="chat-bubble-row assistant">
+            <div className="chat-avatar"><Bot size={20} /></div>
+            <div>
+              <p>Ultimatum AI</p>
+              <div className="chat-bubble">Thinking with your app context...</div>
+            </div>
+          </article>
+        )}
       </div>
 
-      <div className="chat-panel">
-        <div className="message-stream">
-          {messages.map((message, index) => (
-            <article className={`message ${message.role}`} key={`${message.role}-${index}`}>
-              {message.content}
-            </article>
-          ))}
-          {isChatLoading && <article className="message assistant">Thinking with the app context...</article>}
+      <div className="assistant-composer">
+        <div className="prompt-chips">
+          <button type="button" onClick={() => startPrompt("Analyze my meal timing for today.")}>Analyze meal</button>
+          <button type="button" onClick={() => startPrompt("Do an injury-safe hip check-in.")}>Injury check-in</button>
+          <button type="button" onClick={() => startPrompt("Give me the highest leverage tip for today.")}>Tip of the day</button>
         </div>
+        {chatError && <p className="chat-error">{chatError}</p>}
         <form className="chat-form" onSubmit={sendChat}>
           <input
             value={chatInput}
             onChange={(event) => setChatInput(event.target.value)}
-            placeholder="Ask about training, food, routines, or planning"
+            placeholder="Message Ultimatum AI..."
             disabled={isChatLoading}
           />
           <button type="submit" title="Send" disabled={isChatLoading}>
             <Send size={18} />
           </button>
         </form>
+        <small>Guidance is based on your app profile. Consult a professional for serious or recurring pain.</small>
       </div>
     </section>
   );
 }
 
-function SourceList({ title, items }: { title: string; items: string[] }) {
+function SettingsPanel({
+  installPrompt,
+  runInstall,
+  resetLocalState,
+  startPrompt
+}: {
+  installPrompt: Event | null;
+  runInstall: () => Promise<void>;
+  resetLocalState: () => void;
+  startPrompt: (prompt: string) => void;
+}) {
   return (
-    <article className="mini-card">
-      <strong>{title}</strong>
-      {items.map((item) => (
-        <span key={item}>{item}</span>
-      ))}
-    </article>
+    <section className="settings-grid">
+      <article className="panel">
+        <PanelTitle label="PWA install" icon={Sparkles} meta={installPrompt ? "Available" : "Ready"} />
+        <p className="muted-copy">After hosting, install Ultimatum from your browser and run it like a native app.</p>
+        <button className="primary-pill" onClick={runInstall} disabled={!installPrompt} type="button">
+          <Sparkles size={17} />
+          {installPrompt ? "Install app" : "Install prompt not active"}
+        </button>
+      </article>
+      <article className="panel">
+        <PanelTitle label="Claude connection" icon={Bot} meta={isClaudeChatEnabled() ? "Enabled" : "Fallback"} />
+        <p className="muted-copy">Claude chat uses `/api/chat` and keeps `ANTHROPIC_API_KEY` server-side. Local fallback remains available if the endpoint fails.</p>
+        <button className="ghost-pill" type="button" onClick={() => startPrompt("Confirm what context you can see from Ultimatum right now.")}>
+          Test context
+        </button>
+      </article>
+      <article className="panel danger-zone">
+        <PanelTitle label="Local data" icon={RefreshCcw} />
+        <p className="muted-copy">Reset checklist, live inputs, tasks, notes, and chat history on this device.</p>
+        <button className="ghost-pill danger" type="button" onClick={resetLocalState}>
+          Reset local state
+        </button>
+      </article>
+    </section>
   );
 }
 
-function MetricPill({ icon: Icon, label, value }: { icon: typeof Home; label: string; value: string }) {
+function PanelTitle({ label, icon: Icon, meta }: { label: string; icon: typeof Home; meta?: string }) {
   return (
-    <div className="metric-pill">
-      <Icon size={16} />
+    <div className="panel-title">
+      <span><Icon size={17} /> {label}</span>
+      {meta && <strong>{meta}</strong>}
+    </div>
+  );
+}
+
+function MetricMini({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function Stepper({ label, value, onMinus, onPlus }: { label: string; value: string; onMinus: () => void; onPlus: () => void }) {
+  return (
+    <div className="stepper-row">
+      <span>{label}</span>
+      <button type="button" onClick={onMinus}>-</button>
+      <strong>{value}</strong>
+      <button type="button" onClick={onPlus}>+</button>
+    </div>
+  );
+}
+
+function TargetBar({ label, value, percent, kind }: { label: string; value: string; percent: number; kind: string }) {
+  return (
+    <div className="target-bar">
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </div>
+      <i>
+        <b className={kind} style={{ width: `${percent}%` }} />
+      </i>
+    </div>
+  );
+}
+
+function ExerciseRow({ name, detail, note }: { name: string; detail: string; note?: string }) {
+  return (
+    <div className="exercise-row">
+      <div>
+        <strong>{name}</strong>
+        <span>{note || "Progressive overload"}</span>
+      </div>
+      <p>{detail}</p>
+    </div>
+  );
+}
+
+function CheckLine({ text }: { text: string }) {
+  return (
+    <div className="check-line">
+      <Check size={15} />
+      <span>{text}</span>
     </div>
   );
 }
@@ -713,15 +841,44 @@ function getWorkoutForToday() {
 
 function getViewTitle(view: View) {
   const titles: Record<View, string> = {
-    dashboard: "Today",
-    training: "Training",
-    food: "Food",
-    planner: "Planner",
-    life: "Life",
-    chat: "App chat"
+    dashboard: "Performance Dashboard",
+    workouts: "Today's Workout",
+    nutrition: "Nutrition & Timing",
+    prehab: "Prehab & Recovery",
+    lifestyle: "Lifestyle Hub",
+    assistant: "AI Assistant",
+    settings: "Settings"
   };
 
   return titles[view];
+}
+
+function getViewKicker(view: View) {
+  const labels: Record<View, string> = {
+    dashboard: "Command center",
+    workouts: "Training output",
+    nutrition: "Performance fueling",
+    prehab: "Injury management",
+    lifestyle: "Life systems",
+    assistant: "AI",
+    settings: "Configuration"
+  };
+
+  return labels[view];
+}
+
+function getViewSubtitle(view: View, todayFocus: string) {
+  const subtitles: Record<View, string> = {
+    dashboard: `Today's protocol: ${todayFocus}`,
+    workouts: "Structured lifting, athletic power, and pain-aware substitutions.",
+    nutrition: "Macros, meal timing, and supplement reminders for the lean bulk.",
+    prehab: "Hip-safe rules and return-to-training guardrails.",
+    lifestyle: "Goals, money, tasks, notes, and weekly rhythm.",
+    assistant: "Ask with full app context.",
+    settings: "PWA install, Claude connection, and local data controls."
+  };
+
+  return subtitles[view];
 }
 
 function answerFromContext(input: string, state: AppState, todayFocus: string) {
