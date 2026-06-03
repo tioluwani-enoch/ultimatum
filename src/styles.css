@@ -751,6 +751,12 @@ input:disabled {
   gap: 24px;
 }
 
+.workout-control-stack {
+  display: grid;
+  gap: 16px;
+  align-self: start;
+}
+
 .workout-summary {
   align-self: start;
   display: grid;
@@ -923,13 +929,13 @@ input:disabled {
 
 .timer-panel {
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .timer-display {
   color: var(--blue);
   font-family: "JetBrains Mono", monospace;
-  font-size: clamp(42px, 7vw, 72px);
+  font-size: clamp(42px, 5vw, 64px);
   font-weight: 600;
   line-height: 1;
   text-align: center;
@@ -1397,6 +1403,7 @@ input:disabled {
   .span-4,
   .span-5,
   .span-8,
+  .workout-control-stack,
   .workout-summary,
   .session-board,
   .nutrition-side,

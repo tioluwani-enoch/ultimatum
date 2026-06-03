@@ -631,37 +631,80 @@ function Workouts({
 
   return (
     <section className="workout-layout">
-      <aside className="panel workout-summary">
-        <PanelTitle label="Current session" icon={Zap} meta={selectedPlan.day} />
-        <select className="select-line" value={selectedPlanId} onChange={(event) => setSelectedPlanId(event.target.value)}>
-          {state.workoutPlans.map((plan) => (
-            <option key={plan.id} value={plan.id}>
-              {plan.day} - {plan.focus}
-            </option>
-          ))}
-        </select>
-        <label className="stack-field">
-          <span>Session focus</span>
-          <input value={selectedPlan.focus} onChange={(event) => updatePlan((plan) => ({ ...plan, focus: event.target.value }))} />
-        </label>
-        <p>{completedSets}/{totalSets || 0} sets complete. Total planned volume: {Math.round(volume).toLocaleString()} lb.</p>
-        <button
-          className="primary-pill"
-          type="button"
-          onClick={() =>
-            setState((current) => ({
-              ...hydrateState(current),
-              checked: { ...hydrateState(current).checked, "Move or train": true }
-            }))
-          }
-        >
-          <Check size={17} />
-          Mark trained
-        </button>
-        <button className="ghost-pill" type="button" onClick={() => startPrompt("Modify today's workout around hip safety and athletic power.")}>
-          <Bot size={17} />
-          Modify with AI
-        </button>
+      <aside className="workout-control-stack">
+        <div className="panel workout-summary">
+          <PanelTitle label="Current session" icon={Zap} meta={selectedPlan.day} />
+          <select className="select-line" value={selectedPlanId} onChange={(event) => setSelectedPlanId(event.target.value)}>
+            {state.workoutPlans.map((plan) => (
+              <option key={plan.id} value={plan.id}>
+                {plan.day} - {plan.focus}
+              </option>
+            ))}
+          </select>
+          <label className="stack-field">
+            <span>Session focus</span>
+            <input value={selectedPlan.focus} onChange={(event) => updatePlan((plan) => ({ ...plan, focus: event.target.value }))} />
+          </label>
+          <p>{completedSets}/{totalSets || 0} sets complete. Total planned volume: {Math.round(volume).toLocaleString()} lb.</p>
+          <button
+            className="primary-pill"
+            type="button"
+            onClick={() =>
+              setState((current) => ({
+                ...hydrateState(current),
+                checked: { ...hydrateState(current).checked, "Move or train": true }
+              }))
+            }
+          >
+            <Check size={17} />
+            Mark trained
+          </button>
+          <button className="ghost-pill" type="button" onClick={() => startPrompt("Modify today's workout around hip safety and athletic power.")}>
+            <Bot size={17} />
+            Modify with AI
+          </button>
+        </div>
+
+        <div className="panel timer-panel">
+          <PanelTitle label="Gym timers" icon={Timer} meta={activeTimer.mode} />
+          <div className="timer-display">{formatSeconds(activeTimer.remaining)}</div>
+          <div className="timer-controls">
+            <button type="button" onClick={() => setActiveTimer((current) => ({ ...current, running: !current.running }))}>
+              {activeTimer.running ? <Pause size={18} /> : <Play size={18} />}
+              {activeTimer.running ? "Pause" : "Resume"}
+            </button>
+            <button type="button" onClick={() => startTimer("exercise")}>Exercise</button>
+            <button type="button" onClick={() => startTimer("rest")}>Rest</button>
+          </div>
+          <div className="timer-settings">
+            <label>
+              <span>Exercise seconds</span>
+              <input
+                value={state.exerciseSeconds}
+                inputMode="numeric"
+                onChange={(event) =>
+                  setState((current) => ({
+                    ...hydrateState(current),
+                    exerciseSeconds: Math.max(1, Number(event.target.value) || 1)
+                  }))
+                }
+              />
+            </label>
+            <label>
+              <span>Rest seconds</span>
+              <input
+                value={state.restSeconds}
+                inputMode="numeric"
+                onChange={(event) =>
+                  setState((current) => ({
+                    ...hydrateState(current),
+                    restSeconds: Math.max(1, Number(event.target.value) || 1)
+                  }))
+                }
+              />
+            </label>
+          </div>
+        </div>
       </aside>
 
       <div className="session-board panel">
@@ -722,47 +765,6 @@ function Workouts({
               </button>
             </article>
           ))}
-        </div>
-      </div>
-
-      <div className="panel timer-panel">
-        <PanelTitle label="Gym timers" icon={Timer} meta={activeTimer.mode} />
-        <div className="timer-display">{formatSeconds(activeTimer.remaining)}</div>
-        <div className="timer-controls">
-          <button type="button" onClick={() => setActiveTimer((current) => ({ ...current, running: !current.running }))}>
-            {activeTimer.running ? <Pause size={18} /> : <Play size={18} />}
-            {activeTimer.running ? "Pause" : "Resume"}
-          </button>
-          <button type="button" onClick={() => startTimer("exercise")}>Exercise</button>
-          <button type="button" onClick={() => startTimer("rest")}>Rest</button>
-        </div>
-        <div className="timer-settings">
-          <label>
-            <span>Exercise seconds</span>
-            <input
-              value={state.exerciseSeconds}
-              inputMode="numeric"
-              onChange={(event) =>
-                setState((current) => ({
-                  ...hydrateState(current),
-                  exerciseSeconds: Math.max(1, Number(event.target.value) || 1)
-                }))
-              }
-            />
-          </label>
-          <label>
-            <span>Rest seconds</span>
-            <input
-              value={state.restSeconds}
-              inputMode="numeric"
-              onChange={(event) =>
-                setState((current) => ({
-                  ...hydrateState(current),
-                  restSeconds: Math.max(1, Number(event.target.value) || 1)
-                }))
-              }
-            />
-          </label>
         </div>
       </div>
 
