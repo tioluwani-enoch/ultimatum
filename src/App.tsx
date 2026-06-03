@@ -70,6 +70,8 @@ function App() {
   const [taskInput, setTaskInput] = useState("");
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
   const [chatInput, setChatInput] = useState("");
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [chatError, setChatError] = useState("");
   const [messages, setMessages] = useLocalStorage<ChatMessage[]>("ultimatum-chat", [
     {
       role: "assistant",
@@ -113,21 +115,32 @@ function App() {
     setTaskInput("");
   };
 
-  const sendChat = (event: FormEvent) => {
+  const sendChat = async (event: FormEvent) => {
     event.preventDefault();
 
-    if (!chatInput.trim()) {
+    if (!chatInput.trim() || isChatLoading) {
       return;
     }
 
     const userMessage: ChatMessage = { role: "user", content: chatInput.trim() };
-    const assistantMessage: ChatMessage = {
-      role: "assistant",
-      content: answerFromContext(chatInput, state, todayWorkout.focus)
-    };
 
-    setMessages((current) => [...current, userMessage, assistantMessage]);
+    setMessages((current) => [...current, userMessage]);
     setChatInput("");
+    setChatError("");
+    setIsChatLoading(true);
+
+    try {
+      const content = await getChatAnswer(userMessage.content, state, todayWorkout.focus);
+      setMessages((current) => [...current, { role: "assistant", content }]);
+    } catch (error) {
+      const fallback = answerFromContext(userMessage.content, state, todayWorkout.focus);
+      const errorText = error instanceof Error ? error.message : "Claude chat failed.";
+
+      setChatError(`${errorText} Showing local app fallback.`);
+      setMessages((current) => [...current, { role: "assistant", content: fallback }]);
+    } finally {
+      setIsChatLoading(false);
+    }
   };
 
   const runInstall = async () => {
@@ -210,7 +223,14 @@ function App() {
         )}
         {view === "life" && <Life state={state} setState={setState} />}
         {view === "chat" && (
-          <Chat messages={messages} chatInput={chatInput} setChatInput={setChatInput} sendChat={sendChat} />
+          <Chat
+            messages={messages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            sendChat={sendChat}
+            isChatLoading={isChatLoading}
+            chatError={chatError}
+          />
         )}
       </main>
     </div>
@@ -606,12 +626,16 @@ function Chat({
   messages,
   chatInput,
   setChatInput,
-  sendChat
+  sendChat,
+  isChatLoading,
+  chatError
 }: {
   messages: ChatMessage[];
   chatInput: string;
   setChatInput: (value: string) => void;
   sendChat: (event: FormEvent) => void;
+  isChatLoading: boolean;
+  chatError: string;
 }) {
   return (
     <section className="chat-layout">
@@ -631,7 +655,9 @@ function Chat({
           <span>Summer goals</span>
           <span>Budget</span>
           <span>Checklist</span>
+          <span>{isClaudeChatEnabled() ? "Claude enabled" : "Local fallback"}</span>
         </div>
+        {chatError && <p className="chat-error">{chatError}</p>}
       </div>
 
       <div className="chat-panel">
@@ -641,14 +667,16 @@ function Chat({
               {message.content}
             </article>
           ))}
+          {isChatLoading && <article className="message assistant">Thinking with the app context...</article>}
         </div>
         <form className="chat-form" onSubmit={sendChat}>
           <input
             value={chatInput}
             onChange={(event) => setChatInput(event.target.value)}
             placeholder="Ask about training, food, routines, or planning"
+            disabled={isChatLoading}
           />
-          <button type="submit" title="Send">
+          <button type="submit" title="Send" disabled={isChatLoading}>
             <Send size={18} />
           </button>
         </form>
@@ -726,6 +754,55 @@ function answerFromContext(input: string, state: AppState, todayFocus: string) {
   }
 
   return "I can use the current app context for this. Right now the biggest useful levers are: protect the hip, hit protein and water, keep the workout split consistent, add one real-life summer action, and close the most annoying open loop in the planner.";
+}
+
+async function getChatAnswer(input: string, state: AppState, todayFocus: string) {
+  if (!isClaudeChatEnabled()) {
+    return answerFromContext(input, state, todayFocus);
+  }
+
+  const response = await fetch(import.meta.env.VITE_CHAT_API_URL || "/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: input,
+      appContext: buildAppContext(state, todayFocus)
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data?.error || "Claude chat request failed.");
+  }
+
+  return String(data?.message || "").trim() || answerFromContext(input, state, todayFocus);
+}
+
+function isClaudeChatEnabled() {
+  return import.meta.env.VITE_USE_CLAUDE_CHAT === "true";
+}
+
+function buildAppContext(state: AppState, todayFocus: string) {
+  return {
+    profile: summerProfile,
+    todayFocus,
+    liveInputs: {
+      checked: dailyChecklist.filter((item) => state.checked[item]),
+      open: dailyChecklist.filter((item) => !state.checked[item]),
+      waterLiters: state.water,
+      sleepHours: state.sleep,
+      bodyWeight: state.bodyWeight,
+      notes: state.notes,
+      customTasks: state.customTasks
+    },
+    macroTargets,
+    meals,
+    workouts,
+    prehab,
+    summerGoals,
+    budgetItems
+  };
 }
 
 export default App;

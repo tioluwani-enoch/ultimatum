@@ -427,6 +427,12 @@ button {
   padding: 11px 12px;
 }
 
+.chat-form input:disabled,
+.chat-form button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
 .stepper-row button {
   height: 38px;
   border: 1px solid var(--line);
@@ -685,6 +691,16 @@ button {
 
 .context-panel {
   align-self: start;
+}
+
+.chat-error {
+  margin: 14px 0 0;
+  border-left: 3px solid var(--rose);
+  background: #f7e3df;
+  color: #76352f;
+  padding: 10px 12px;
+  line-height: 1.45;
+  border-radius: 0 8px 8px 0;
 }
 
 .chat-panel {
