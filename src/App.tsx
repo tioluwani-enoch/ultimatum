@@ -6,10 +6,13 @@ import {
   CalendarDays,
   Check,
   CircleUser,
+  Clipboard,
+  Download,
   Dumbbell,
   Gauge,
   HeartPulse,
   Home,
+  Info,
   MessageCircle,
   Moon,
   Pause,
@@ -26,6 +29,7 @@ import {
   Trash2,
   Wallet,
   Waves,
+  X,
   Zap
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
@@ -111,6 +115,9 @@ function App() {
   const [state, setState] = useLocalStorage<AppState>("ultimatum-state", initialState);
   const [taskInput, setTaskInput] = useState("");
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const [isInstallGuideOpen, setIsInstallGuideOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [installCopyStatus, setInstallCopyStatus] = useState("");
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [chatError, setChatError] = useState("");
@@ -214,12 +221,26 @@ function App() {
 
   const runInstall = async () => {
     if (!installPrompt) {
+      setIsInstallGuideOpen(true);
       return;
     }
 
     const promptEvent = installPrompt as Event & { prompt: () => Promise<void> };
     await promptEvent.prompt();
     setInstallPrompt(null);
+  };
+
+  const copyInstallUrl = async () => {
+    const appUrl = window.location.href;
+
+    try {
+      await navigator.clipboard.writeText(appUrl);
+      setInstallCopyStatus("Copied");
+    } catch {
+      setInstallCopyStatus(appUrl);
+    }
+
+    window.setTimeout(() => setInstallCopyStatus(""), 2200);
   };
 
   const logWorkout = () => {
@@ -249,10 +270,14 @@ function App() {
         <strong>{summerProfile.title}</strong>
         <div className="topbar-actions">
           <span className="status-chip">{isClaudeChatEnabled() ? "Claude linked" : "Local AI fallback"}</span>
-          <button type="button" title="Notifications">
+          <button className="topbar-install" type="button" title="Install Ultimatum" onClick={runInstall}>
+            <Download size={18} />
+            <span>Install</span>
+          </button>
+          <button type="button" title="Notifications" onClick={() => setIsNotificationsOpen(true)}>
             <Bell size={20} />
           </button>
-          <button type="button" title="Profile">
+          <button type="button" title="Profile and settings" onClick={() => setView("settings")}>
             <CircleUser size={21} />
           </button>
         </div>
@@ -357,11 +382,29 @@ function App() {
           <SettingsPanel
             installPrompt={installPrompt}
             runInstall={runInstall}
+            openInstallGuide={() => setIsInstallGuideOpen(true)}
             resetLocalState={resetLocalState}
             startPrompt={startPrompt}
           />
         )}
       </main>
+
+      <InstallGuideModal
+        isOpen={isInstallGuideOpen}
+        installPrompt={installPrompt}
+        copyStatus={installCopyStatus}
+        onClose={() => setIsInstallGuideOpen(false)}
+        onCopyUrl={copyInstallUrl}
+        onInstall={runInstall}
+      />
+      <NotificationsModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        todayWorkout={todayWorkout}
+        appState={appState}
+        setView={setView}
+        startPrompt={startPrompt}
+      />
     </div>
   );
 }
@@ -1029,11 +1072,13 @@ function Assistant({
 function SettingsPanel({
   installPrompt,
   runInstall,
+  openInstallGuide,
   resetLocalState,
   startPrompt
 }: {
   installPrompt: Event | null;
   runInstall: () => Promise<void>;
+  openInstallGuide: () => void;
   resetLocalState: () => void;
   startPrompt: (prompt: string) => void;
 }) {
@@ -1041,10 +1086,14 @@ function SettingsPanel({
     <section className="settings-grid">
       <article className="panel">
         <PanelTitle label="PWA install" icon={Sparkles} meta={installPrompt ? "Available" : "Ready"} />
-        <p className="muted-copy">After hosting, install Ultimatum from your browser and run it like a native app.</p>
-        <button className="primary-pill" onClick={runInstall} disabled={!installPrompt} type="button">
-          <Sparkles size={17} />
-          {installPrompt ? "Install app" : "Install prompt not active"}
+        <p className="muted-copy">Install Ultimatum from the browser when the prompt is available, or open phone setup steps for Safari and Chrome.</p>
+        <button className="primary-pill" onClick={installPrompt ? runInstall : openInstallGuide} type="button">
+          <Download size={17} />
+          {installPrompt ? "Install app" : "Phone install setup"}
+        </button>
+        <button className="ghost-pill panel-secondary-action" onClick={openInstallGuide} type="button">
+          <Info size={17} />
+          Show install steps
         </button>
       </article>
       <article className="panel">
@@ -1062,6 +1111,160 @@ function SettingsPanel({
         </button>
       </article>
     </section>
+  );
+}
+
+function InstallGuideModal({
+  isOpen,
+  installPrompt,
+  copyStatus,
+  onClose,
+  onCopyUrl,
+  onInstall
+}: {
+  isOpen: boolean;
+  installPrompt: Event | null;
+  copyStatus: string;
+  onClose: () => void;
+  onCopyUrl: () => void;
+  onInstall: () => Promise<void>;
+}) {
+  if (!isOpen) {
+    return null;
+  }
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="install-guide-title">
+      <section className="modal-panel install-guide">
+        <div className="modal-header">
+          <div>
+            <p>Install Ultimatum</p>
+            <h3 id="install-guide-title">Add the app to your phone</h3>
+          </div>
+          <button className="icon-button" type="button" title="Close install guide" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="install-actions">
+          {installPrompt && (
+            <button className="primary-pill" type="button" onClick={onInstall}>
+              <Download size={17} />
+              Install now
+            </button>
+          )}
+          <button className="ghost-pill" type="button" onClick={onCopyUrl}>
+            <Clipboard size={17} />
+            {copyStatus === "Copied" ? "Copied URL" : "Copy app URL"}
+          </button>
+        </div>
+        {copyStatus && copyStatus !== "Copied" && <p className="copy-fallback">{copyStatus}</p>}
+
+        <div className="install-step-grid">
+          <article>
+            <strong>iPhone or iPad</strong>
+            <ol>
+              <li>Open the hosted app in Safari.</li>
+              <li>Tap Share.</li>
+              <li>Choose Add to Home Screen, then Add.</li>
+            </ol>
+          </article>
+          <article>
+            <strong>Android Chrome</strong>
+            <ol>
+              <li>Open the hosted app in Chrome.</li>
+              <li>Tap the three-dot menu.</li>
+              <li>Choose Install app or Add to Home screen.</li>
+            </ol>
+          </article>
+          <article>
+            <strong>Desktop</strong>
+            <ol>
+              <li>Open Ultimatum on the hosted HTTPS URL.</li>
+              <li>Use the install icon in the address bar.</li>
+              <li>Launch it from your apps list.</li>
+            </ol>
+          </article>
+        </div>
+
+        <p className="modal-note">
+          Phone installs need the hosted HTTPS version. Localhost works for testing on your computer, but your phone needs the deployed URL.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function NotificationsModal({
+  isOpen,
+  onClose,
+  todayWorkout,
+  appState,
+  setView,
+  startPrompt
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  todayWorkout: WorkoutPlan;
+  appState: AppState;
+  setView: (view: View) => void;
+  startPrompt: (prompt: string) => void;
+}) {
+  if (!isOpen) {
+    return null;
+  }
+
+  const openView = (nextView: View) => {
+    setView(nextView);
+    onClose();
+  };
+
+  const completedSets = todayWorkout.exercises.reduce((total, exercise) => total + exercise.sets.filter((set) => set.done).length, 0);
+  const totalSets = todayWorkout.exercises.reduce((total, exercise) => total + exercise.sets.length, 0);
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="notifications-title">
+      <section className="modal-panel notification-panel">
+        <div className="modal-header">
+          <div>
+            <p>Today</p>
+            <h3 id="notifications-title">Ultimatum alerts</h3>
+          </div>
+          <button className="icon-button" type="button" title="Close notifications" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="notification-list">
+          <article>
+            <span>Training</span>
+            <strong>{todayWorkout.day}: {todayWorkout.focus}</strong>
+            <p>{completedSets}/{totalSets} sets complete.</p>
+            <button type="button" onClick={() => openView("workouts")}>Open workout</button>
+          </article>
+          <article>
+            <span>Recovery</span>
+            <strong>Hip safety check</strong>
+            <p>Keep flexor work controlled before any heavy pulling or sprinting.</p>
+            <button type="button" onClick={() => openView("prehab")}>Open prehab</button>
+          </article>
+          <article>
+            <span>Life system</span>
+            <strong>{appState.customTasks.length} open tasks</strong>
+            <p>Turn notes and loops into a sharper plan when your day feels scattered.</p>
+            <button
+              type="button"
+              onClick={() => {
+                startPrompt("Look at my open tasks, notes, training plan, and nutrition context. Tell me the next three highest leverage moves.");
+                onClose();
+              }}
+            >
+              Ask AI
+            </button>
+          </article>
+        </div>
+      </section>
+    </div>
   );
 }
 

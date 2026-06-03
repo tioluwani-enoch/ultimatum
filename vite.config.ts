@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => {
           short_name: "Ultimatum",
           description:
             "A local-first summer and life command center for training, food, routines, planning, and app-aware chat.",
-          theme_color: "#f6f2eb",
-          background_color: "#f6f2eb",
+          theme_color: "#0a0a0a",
+          background_color: "#0a0a0a",
           display: "standalone",
           start_url: "/",
           scope: "/",
