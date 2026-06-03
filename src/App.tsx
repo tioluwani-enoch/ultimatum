@@ -66,11 +66,11 @@ const navItems: Array<{ id: View; label: string; icon: typeof Home }> = [
 
 function App() {
   const [view, setView] = useState<View>("dashboard");
-  const [state, setState] = useLocalStorage<AppState>("ultimate-summer-os-state", initialState);
+  const [state, setState] = useLocalStorage<AppState>("ultimatum-state", initialState);
   const [taskInput, setTaskInput] = useState("");
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
   const [chatInput, setChatInput] = useState("");
-  const [messages, setMessages] = useLocalStorage<ChatMessage[]>("ultimate-summer-os-chat", [
+  const [messages, setMessages] = useLocalStorage<ChatMessage[]>("ultimatum-chat", [
     {
       role: "assistant",
       content:

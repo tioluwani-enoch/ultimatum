@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["icon.svg", "assets/summer-os-banner.png"],
       manifest: {
-        name: "Ultimate Summer OS",
-        short_name: "Summer OS",
+        name: "Ultimatum",
+        short_name: "Ultimatum",
         description:
           "A local-first summer and life command center for training, food, routines, planning, and app-aware chat.",
         theme_color: "#f6f2eb",

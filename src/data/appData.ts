@@ -13,7 +13,7 @@ export type Meal = {
 };
 
 export const summerProfile = {
-  title: "Ultimate Summer OS",
+  title: "Ultimatum",
   tagline: "Training, food, money, time, recovery, and the real-life stuff in one place.",
   stats: {
     age: "18M",

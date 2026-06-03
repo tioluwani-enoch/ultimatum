@@ -1,4 +1,4 @@
-# Ultimate Summer OS
+# Ultimatum
 
 A local-first PWA for managing summer training, nutrition, routines, planning, life goals, and app-aware questions.
 
