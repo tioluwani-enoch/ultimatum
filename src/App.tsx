@@ -1225,7 +1225,7 @@ async function getChatAnswer(input: string, state: AppState, todayFocus: string)
   const data = await readJsonResponse(response);
 
   if (!response.ok) {
-    throw new Error(data?.error || "Claude chat request failed.");
+    throw new Error(data?.error || `Claude chat request failed with status ${response.status}.`);
   }
 
   return String(data?.message || "").trim() || answerFromContext(input, state, todayFocus);

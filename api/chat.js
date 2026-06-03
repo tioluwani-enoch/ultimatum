@@ -50,7 +50,7 @@ export default async function handler(req, res) {
       })
     });
 
-    const data = await anthropicResponse.json();
+    const data = await readJsonResponse(anthropicResponse);
 
     if (!anthropicResponse.ok) {
       return res.status(anthropicResponse.status).json({
@@ -77,4 +77,18 @@ function extractClaudeText(data) {
     .map((part) => part.text)
     .join("\n")
     .trim();
+}
+
+async function readJsonResponse(response) {
+  const text = await response.text();
+
+  if (!text.trim()) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { error: { message: text } };
+  }
 }

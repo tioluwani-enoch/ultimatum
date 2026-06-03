@@ -38,10 +38,10 @@ VITE_CHAT_API_URL=/api/chat
 
 The Claude key is server-only. Do not add it with a `VITE_` prefix.
 
-For local Claude testing, use Vercel's dev server so `/api/chat` runs:
+For local Claude testing, run the Vite dev server. It serves `/api/chat` from `vite.config.ts` and reads `.env` server-side:
 
 ```bash
-npx vercel dev
+npm run dev
 ```
 
-Plain `npm run dev` still runs the app, but it does not run the serverless Claude endpoint. When deployed on Vercel, set the same environment variables in the project settings. The frontend sends chat requests to `/api/chat`, and `api/chat.js` calls Claude securely from the serverless function.
+When deployed on Vercel, set the same environment variables in the project settings. The frontend sends chat requests to `/api/chat`, and `api/chat.js` calls Claude securely from the serverless function.
