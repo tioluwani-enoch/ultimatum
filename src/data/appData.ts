@@ -37,7 +37,7 @@ export const dailyChecklist = [
   "Hit 180g protein",
   "Drink 3.5L water",
   "Move or train",
-  "Do hip-safe prehab",
+  "Do mobility work",
   "Log one win",
   "Sleep plan before 11"
 ];
@@ -107,9 +107,9 @@ export const workouts: WorkoutDay[] = [
     tag: "Training",
     exercises: [
       { name: "Trap bar deadlift", detail: "4 x 5", note: "Preferred over conventional" },
-      { name: "Barbell squat", detail: "4 x 5-6", note: "Keep above parallel" },
+      { name: "Barbell squat", detail: "4 x 5-6" },
       { name: "Romanian deadlift", detail: "3 x 8" },
-      { name: "Hip thrust", detail: "3 x 10-12", note: "Safe alternative" },
+      { name: "Hip thrust", detail: "3 x 10-12", note: "Glute isolation" },
       { name: "Lying leg curl", detail: "3 x 10-12" },
       { name: "Standing calf raise", detail: "4 x 15" },
       { name: "Double-leg bridge", detail: "2 x 15 before lifting", note: "Prehab activation" }
@@ -148,22 +148,20 @@ export const workouts: WorkoutDay[] = [
 
 export const prehab = [
   {
-    title: "Pain rule",
-    detail: "Train at 3/10 pain or lower. Stop any exercise that pushes above 4/10."
-  },
-  {
-    title: "Avoid during flares",
-    detail:
-      "Deep squats, long-stride forward lunges, deep leg press, hanging leg raises, full sit-ups, aggressive hip flexor stretching."
+    title: "Activation priority",
+    detail: "Run joint mobility and activation drills before every session. Target hip flexors, thoracic spine, and shoulders to prime movement quality."
   },
   {
     title: "Base protocol",
-    detail:
-      "Double-leg bridge, resisted hip extension, side-lying hip abduction, dead bug, Copenhagen plank, then single-leg bridge once pain-free."
+    detail: "Double-leg bridge, resisted hip extension, side-lying hip abduction, dead bug, Copenhagen plank, then single-leg bridge as a strength progression."
   },
   {
-    title: "Return rule",
-    detail: "After a flare, restart with prehab and low load. Do not jump straight back to full lower-body volume."
+    title: "Post-session care",
+    detail: "10-15 minutes of static stretching and soft tissue work after every lifting session. Focus on the muscles trained that day."
+  },
+  {
+    title: "Recovery signals",
+    detail: "Track soreness, sleep quality, and energy each morning. If two or more are low, drop intensity or shift to an active recovery day."
   }
 ];
 

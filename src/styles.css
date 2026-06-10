@@ -1146,7 +1146,7 @@ input:disabled {
 .risk-panel {
   display: grid;
   gap: 14px;
-  border-color: rgba(226, 75, 74, 0.4);
+  border-color: rgba(55, 138, 221, 0.4);
 }
 
 .prehab-grid {
@@ -1172,10 +1172,10 @@ input:disabled {
 }
 
 .avoid-grid span {
-  border: 1px solid rgba(239, 159, 39, 0.35);
+  border: 1px solid rgba(55, 138, 221, 0.35);
   border-radius: 999px;
-  background: rgba(239, 159, 39, 0.1);
-  color: var(--amber);
+  background: rgba(55, 138, 221, 0.1);
+  color: var(--blue);
   padding: 8px 11px;
 }
 
