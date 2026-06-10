@@ -21,7 +21,6 @@ import {
   RefreshCcw,
   Send,
   Settings,
-  ShieldAlert,
   Sparkles,
   Target,
   Timer,
@@ -91,7 +90,7 @@ const initialMessages: ChatMessage[] = [
   {
     role: "assistant",
     content:
-      "Ultimatum context is loaded: training split, nutrition targets, meal timing, iliopsoas guardrails, summer goals, budget, checklist, and live notes. Ask me what to do next."
+      "Ultimatum context is loaded: training split, nutrition targets, meal timing, recovery protocols, summer goals, budget, checklist, and live notes. Ask me what to do next."
   }
 ];
 
@@ -99,7 +98,7 @@ const navItems: Array<{ id: View; label: string; icon: typeof Home }> = [
   { id: "dashboard", label: "Dashboard", icon: Home },
   { id: "workouts", label: "Workouts", icon: Dumbbell },
   { id: "nutrition", label: "Nutrition", icon: Apple },
-  { id: "prehab", label: "Prehab", icon: HeartPulse },
+  { id: "prehab", label: "Recovery", icon: HeartPulse },
   { id: "lifestyle", label: "Lifestyle", icon: Trophy },
   { id: "assistant", label: "AI Assistant", icon: Bot },
   { id: "settings", label: "Settings", icon: Settings }
@@ -704,7 +703,7 @@ function Workouts({
             <Check size={17} />
             Mark trained
           </button>
-          <button className="ghost-pill" type="button" onClick={() => startPrompt("Modify today's workout around hip safety and athletic power.")}>
+          <button className="ghost-pill" type="button" onClick={() => startPrompt("Modify today's workout to maximize athletic power and progressive overload.")}>
             <Bot size={17} />
             Modify with AI
           </button>
@@ -888,12 +887,12 @@ function Prehab({ startPrompt }: { startPrompt: (prompt: string) => void }) {
   return (
     <section className="prehab-layout">
       <article className="panel risk-panel">
-        <PanelTitle label="Iliopsoas safety" icon={ShieldAlert} meta="Pain rule" />
-        <h3>Do not train through acute flares.</h3>
-        <p>Keep pain at or below 3/10. Stop any movement that crosses 4/10, and avoid deep hip flexion under load during symptoms.</p>
-        <button className="primary-pill" type="button" onClick={() => startPrompt("My hip feels tight today. Build a safer training and prehab plan.")}>
+        <PanelTitle label="Recovery & Mobility" icon={HeartPulse} meta="Active care" />
+        <h3>Train smart. Recover harder.</h3>
+        <p>Run activation and mobility work before every session. Post-session care is what separates a good week from a great one — prioritize it like a set.</p>
+        <button className="primary-pill" type="button" onClick={() => startPrompt("Build me a complete recovery and mobility plan for today based on my training schedule.")}>
           <Bot size={17} />
-          Injury check-in
+          Plan recovery
         </button>
       </article>
 
@@ -908,9 +907,9 @@ function Prehab({ startPrompt }: { startPrompt: (prompt: string) => void }) {
       </div>
 
       <article className="panel avoid-card">
-        <PanelTitle label="Avoid or modify" icon={HeartPulse} />
+        <PanelTitle label="Key activation drills" icon={Activity} />
         <div className="avoid-grid">
-          {["Deep squats", "Long forward lunges", "Deep leg press", "Hanging leg raises", "Full sit-ups", "Aggressive hip flexor stretches"].map((item) => (
+          {["Double-leg bridge", "Dead bug", "Copenhagen plank", "Side-lying abduction", "Pallof press", "Single-leg balance"].map((item) => (
             <span key={item}>{item}</span>
           ))}
         </div>
@@ -1050,7 +1049,7 @@ function Assistant({
       <div className="assistant-composer">
         <div className="prompt-chips">
           <button type="button" onClick={() => startPrompt("Analyze my meal timing for today.")}>Analyze meal</button>
-          <button type="button" onClick={() => startPrompt("Do an injury-safe hip check-in.")}>Injury check-in</button>
+          <button type="button" onClick={() => startPrompt("Plan my recovery and mobility work for today.")}>Plan recovery</button>
           <button type="button" onClick={() => startPrompt("Give me the highest leverage tip for today.")}>Tip of the day</button>
         </div>
         {chatError && <p className="chat-error">{chatError}</p>}
@@ -1065,7 +1064,7 @@ function Assistant({
             <Send size={18} />
           </button>
         </form>
-        <small>Guidance is based on your app profile. Consult a professional for serious or recurring pain.</small>
+        <small>Guidance is based on your app profile. Consult a healthcare professional for any medical concerns.</small>
       </div>
     </section>
   );
@@ -1254,9 +1253,9 @@ function NotificationsModal({
           </article>
           <article>
             <span>Recovery</span>
-            <strong>Hip safety check</strong>
-            <p>Keep flexor work controlled before any heavy pulling or sprinting.</p>
-            <button type="button" onClick={() => openView("prehab")}>Open prehab</button>
+            <strong>Mobility check</strong>
+            <p>Run activation drills before training and dedicate post-session time to stretching and soft tissue work.</p>
+            <button type="button" onClick={() => openView("prehab")}>Open recovery</button>
           </article>
           <article>
             <span>Life system</span>
@@ -1352,7 +1351,7 @@ function getViewTitle(view: View) {
     dashboard: "Performance Dashboard",
     workouts: "Today's Workout",
     nutrition: "Nutrition & Timing",
-    prehab: "Prehab & Recovery",
+    prehab: "Recovery & Mobility",
     lifestyle: "Lifestyle Hub",
     assistant: "AI Assistant",
     settings: "Settings"
@@ -1366,7 +1365,7 @@ function getViewKicker(view: View) {
     dashboard: "Command center",
     workouts: "Training output",
     nutrition: "Performance fueling",
-    prehab: "Injury management",
+    prehab: "Recovery & mobility",
     lifestyle: "Life systems",
     assistant: "AI",
     settings: "Configuration"
@@ -1378,9 +1377,9 @@ function getViewKicker(view: View) {
 function getViewSubtitle(view: View, todayFocus: string) {
   const subtitles: Record<View, string> = {
     dashboard: `Today's protocol: ${todayFocus}`,
-    workouts: "Structured lifting, athletic power, and pain-aware substitutions.",
+    workouts: "Structured lifting, progressive overload, and athletic power.",
     nutrition: "Macros, meal timing, and supplement reminders for the lean bulk.",
-    prehab: "Hip-safe rules and return-to-training guardrails.",
+    prehab: "Mobility protocols, activation work, and recovery guidelines.",
     lifestyle: "Goals, money, tasks, notes, and weekly rhythm.",
     assistant: "Ask with full app context.",
     settings: "PWA install, Claude connection, and local data controls."
@@ -1394,8 +1393,8 @@ function answerFromContext(input: string, state: AppState, todayFocus: string) {
   const checked = dailyChecklist.filter((item) => state.checked[item]);
   const open = dailyChecklist.filter((item) => !state.checked[item]);
 
-  if (question.includes("hip") || question.includes("iliopsoas") || question.includes("pain")) {
-    return "Hip context: keep training at 3/10 pain or lower, stop above 4/10, avoid deep hip flexion during flares, and prioritize bridges, resisted hip extension, dead bugs, side-lying abduction, and short-lever Copenhagens. If it is actively flaring, make today recovery-first.";
+  if (question.includes("recover") || question.includes("mobility") || question.includes("sore")) {
+    return "Recovery context: run activation and mobility work before every session — bridges, dead bugs, side-lying abduction, Copenhagen planks. After training, 10-15 minutes of static stretching and soft tissue work. If soreness or energy are low, drop intensity or take an active recovery day.";
   }
 
   if (question.includes("eat") || question.includes("meal") || question.includes("protein") || question.includes("macro")) {
@@ -1403,7 +1402,7 @@ function answerFromContext(input: string, state: AppState, todayFocus: string) {
   }
 
   if (question.includes("workout") || question.includes("train") || question.includes("lift")) {
-    return `Training context: today is ${todayFocus}. The weekly split is upper strength, lower strength, recovery/prehab, upper hypertrophy, light reset, athletic power, full rest. Progressive overload matters, but the hip pain rule comes first.`;
+    return `Training context: today is ${todayFocus}. The weekly split is upper strength, lower strength, upper hypertrophy, and athletic power. Progressive overload drives the lean bulk — track volume and push intensity each week.`;
   }
 
   if (question.includes("today") || question.includes("checklist") || question.includes("priority")) {
@@ -1418,7 +1417,7 @@ function answerFromContext(input: string, state: AppState, todayFocus: string) {
     return "PWA context: once hosted, this app can be installed from the browser because it has a manifest and service worker. Use the install button when the browser exposes the install prompt.";
   }
 
-  return "I can use the current app context for this. Right now the biggest useful levers are: protect the hip, hit protein and water, keep the workout split consistent, add one real-life summer action, and close the most annoying open loop in the planner.";
+  return "I can use the current app context for this. Right now the biggest useful levers are: hit protein and water, keep the workout split consistent, run your daily mobility work, add one real-life summer action, and close the most annoying open loop in the planner.";
 }
 
 async function getChatAnswer(input: string, state: AppState, todayFocus: string) {
